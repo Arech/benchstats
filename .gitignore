@@ -1,0 +1,7 @@
+.vs
+.vscode
+__pycache__
+*.egg-info
+*.html
+*.svg
+*.txt

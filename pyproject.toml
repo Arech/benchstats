@@ -1,0 +1,45 @@
+[build-system]
+# requires      = ["setuptools>=61.0.0", "wheel"]
+# build-backend = "setuptools.build_meta"
+
+# https://realpython.com/pypi-publish-python-package/
+
+[project]
+name = "benchstats"
+version = "0.0.1"
+
+# description = ""
+
+readme = "README.md"
+
+# authors = [{ name = "TODO", email = "TODO" }]
+# license = { file = "LICENSE" }
+#classifiers = [
+#    "License :: OSI Approved :: MIT License",
+#    "Programming Language :: Python",
+#    "Programming Language :: Python :: 3",
+#]
+
+keywords = ["benchmarks", "statistics", "reports", "analysis"]
+
+dependencies = [
+    "rich",
+    "numpy",
+    "scipy",
+    "recordclass",
+    # 'tomli; python_version < "3.11"',
+]
+requires-python = ">=3.8"
+
+#[project.optional-dependencies]
+#dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+
+[project.urls]
+Homepage = "https://github.com/Arech/benchstats"
+
+[project.scripts]
+benchstats = "benchstats.__main__:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py313']
