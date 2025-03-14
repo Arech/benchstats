@@ -68,11 +68,19 @@ class CompareStatsResult(dataobject, readonly=True):
         assert isinstance(al, kAllowedFpTypes) and isinstance(one_dif, (bool, np.bool_))
         super().__init__(res, met, float(al), bool(one_dif))
 
-    def getMetrics(self):
+    def getMetrics(self) -> tuple[str]:
         return tuple(next(iter(self.results.values())).keys())
 
-    def getBenchmarkNames(self):
+    def getBenchmarkNames(self) -> tuple[str]:
         return tuple(self.results.keys())
+
+    def areAllSame(self) -> bool:
+        """Tests if all benchmarks over all metrics compare same"""
+        return all(["~" == cr.result for bm_res in self.results.values() for cr in bm_res.values()])
+    
+    def areMetricsSame(self, metrics: Iterable[str]) -> bool:
+        """Tests if all benchmarks over specified metrics compare same"""
+        return all(["~" == bm_res[m].result for bm_res in self.results.values() for m in metrics])
 
 
 def compareStats(
@@ -82,7 +90,7 @@ def compareStats(
     alpha: float = kDefaultAlpha,
     debug_log=True,
     scipy_bug_workaround: None | bool = None,
-):
+) -> CompareStatsResult:
     """Perform comparison for statistical significance between two groups of sets of statistics
     using specific statistical method.
 

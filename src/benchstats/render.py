@@ -159,20 +159,20 @@ def renderComparisonResults(
                     style_overrides.get("diff_result_sign", kDefaultStyles["diff_result_sign"]), -1
                 )
             txt.append(f" {makeReadable(res.repr_value2, metric_prec)}{unit}", style=def_style)
+
             if always_show_pvalues or is_diff:
                 str_pval = f"{res.pvalue:{pval_fmt}}"
-                # showing trailing plus to highlight that it's not a true zero
-                next_char = (
-                    "+" if 0 == float(str_pval) else " "
-                )  # reasonably assuming pvalue is never zero
-                txt.append(" p=" + str_pval, style=def_style)
-            elif show_sample_sizes:
-                txt.append(" " * pval_total_len, style=def_style)
-                next_char = " "
+                # showing trailing plus to highlight that it's not a true zero, reasonably assuming pvalue is never zero
+                next_char = "+" if 0 == float(str_pval) else " "
+                txt.append(f" p={str_pval}{next_char}", style=def_style)
+            else:
+                txt.append(
+                    " " * (pval_total_len * int(show_sample_sizes == True) + 1), style=def_style
+                )
 
             if show_sample_sizes:
                 txt.append(
-                    f"{next_char}({res.size1} vs {res.size2})",
+                    f"({res.size1} vs {res.size2})",
                     style=style_overrides.get("sample_sizes", kDefaultStyles["sample_sizes"]),
                 )
 

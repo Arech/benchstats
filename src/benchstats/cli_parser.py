@@ -62,7 +62,9 @@ class myCSV(ParserBase):
 
     parser.add_argument(
         "--filter1",
-        help="If specified, sets a Python regular expression to select benchmarks by name from <file1>",
+        help="If specified, sets a Python regular expression (see "
+        "https://docs.python.org/3/howto/regex.html#regex-howto) to select benchmarks by name "
+        "from <file1>",
         metavar="<reg expr>",
         default=None,
     )
@@ -83,7 +85,7 @@ class myCSV(ParserBase):
 
     parser.add_argument(
         "--filter2",
-        help="If specified, sets a regular expression (in Python RE dialect) to select benchmarks by name from <file2>",
+        help="Same as --filter1, but for <file2>",
         metavar="<reg expr>",
         default=None,
     )
