@@ -50,24 +50,28 @@ def _detectExportFormat(export_to, export_fmt):
 def makeReadable(value: float, prec: int):
     """Prints float `value` in a readable form with a corresponding suffix (if it's known, otherwise
     uses scientific notation) and given precision"""
+
+    def _render(v: float):
+        return f"{v:{prec+4}.{prec}f}" if v >= 10.0 else f"{v:{prec+4}.{prec+1}f}"
+
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}"
+        return _render(value)
     orig_value = value
     value *= 1000
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}m"
+        return _render(value) + "m"
     value *= 1000
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}u"
+        return _render(value) + "u"
     value *= 1000
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}n"
+        return _render(value) + "n"
     value *= 1000
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}p"
+        return _render(value) + "p"
     value *= 1000
     if value >= 1:
-        return f"{value:{prec+4}.{prec}f}f"
+        return _render(value) + "f"
     return f"{orig_value:.{prec}e}"
 
 
@@ -82,6 +86,7 @@ def renderComparisonResults(
     main_metrics: Iterable[str] = None,
     show_sample_sizes: bool = False,
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
+    always_show_pvalues: bool = False,
 ):
     assert isinstance(comp_res, CompareStatsResult)
     if style_overrides is None:
@@ -154,10 +159,12 @@ def renderComparisonResults(
                     style_overrides.get("diff_result_sign", kDefaultStyles["diff_result_sign"]), -1
                 )
             txt.append(f" {makeReadable(res.repr_value2, metric_prec)}{unit}", style=def_style)
-            if is_diff:
+            if always_show_pvalues or is_diff:
                 str_pval = f"{res.pvalue:{pval_fmt}}"
                 # showing trailing plus to highlight that it's not a true zero
-                next_char = "+" if res.pvalue > 0 and 0 == float(str_pval) else " "
+                next_char = (
+                    "+" if 0 == float(str_pval) else " "
+                )  # reasonably assuming pvalue is never zero
                 txt.append(" p=" + str_pval, style=def_style)
             elif show_sample_sizes:
                 txt.append(" " * pval_total_len, style=def_style)

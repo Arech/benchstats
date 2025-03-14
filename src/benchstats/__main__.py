@@ -61,6 +61,7 @@ def main():
         export_dark=not args.export_light,
         disable_colors=args.no_colors,
         show_sample_sizes=not args.hide_sample_sizes,
+        always_show_pvalues=args.always_show_pvalues
     )
 
     if cr.at_least_one_differs:

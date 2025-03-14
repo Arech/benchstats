@@ -146,6 +146,16 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
+        "--always_show_pvalues",
+        help="If set, always show pvalues. By default it shows pvalues only for significant differences. Note that "
+        "when two sets are compared stochastically same (~), or more precisely, not stochastically less and not "
+        "stochastically greater (see https://en.wikipedia.org/wiki/Stochastic_ordering), pvalue shown is minimum of "
+        "two pvalues for less and greater comparison.",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
         "--expect_same",
         help="If set, assumes that distributions are the same (i.e. H0 hypothesis is true) and shows some additional "
         "statistics useful for ensuring that a benchmark code is stable enough, or the machine is quiesced enough. "
