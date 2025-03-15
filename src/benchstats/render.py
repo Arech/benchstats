@@ -61,7 +61,9 @@ def makeReadable(value: float, prec: int):
     uses scientific notation) and given precision"""
 
     def _render(v: float):
-        return f"{v:{prec+4}.{prec}f}" if v >= 10.0 else f"{v:{prec+4}.{prec+1}f}"
+        if v>=100.0:
+            return f"{v:{prec+4}.{prec}f}"
+        return f"{v:{prec+4}.{prec+1}f}" if v >= 10.0 else f"{v:{prec+4}.{prec+2}f}"
 
     if value >= 1:
         return _render(value)
