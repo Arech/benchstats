@@ -36,21 +36,32 @@ class BmCompResult(dataobject, readonly=True):
 
     # is_reliable: bool  # if the results are reliable (judged by a size of source dataset)
 
-    repr_value1: float  # representative value of set 1 and 2. Typically just means
-    repr_value2: float
+    val_set1: float | np.ndarray  # representative value (mean) of the set, or the whole set
+    val_set2: float | np.ndarray  # depending on store_sets flag of compareStats()
 
     size1: int  # sizes of respective metric values set
     size2: int
 
-    def __init__(self, res: str, pval: float, r1: float, r2: float, siz1: int, siz2: int):
+    def __init__(self, res: str, pval: float, v1: float, v2: float, siz1: int, siz2: int):
         """Constructor to verify correctness of initialization"""
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
         assert isinstance(pval, kAllowedFpTypes)
-        assert isinstance(r1, kAllowedFpTypes) and isinstance(r2, kAllowedFpTypes)
+        assert (isinstance(v1, kAllowedFpTypes) and isinstance(v2, kAllowedFpTypes)) or (
+            isinstance(v1, np.ndarray) and isinstance(v2, np.ndarray)
+        )
         assert isinstance(res, str) and res in ("<", ">", "~")
         assert isinstance(siz1, int) and isinstance(siz2, int)
-        super().__init__(res, float(pval), float(r1), float(r2), siz1, siz2)
+        if isinstance(v1, np.ndarray):
+            assert siz1 == len(v1) and siz2 == len(v2)
+        super().__init__(
+            res,
+            float(pval),
+            v1 if isinstance(v1, np.ndarray) else float(v1),
+            v2 if isinstance(v2, np.ndarray) else float(v2),
+            siz1,
+            siz2,
+        )
 
 
 class CompareStatsResult(dataobject, readonly=True):
@@ -77,7 +88,7 @@ class CompareStatsResult(dataobject, readonly=True):
     def areAllSame(self) -> bool:
         """Tests if all benchmarks over all metrics compare same"""
         return all(["~" == cr.result for bm_res in self.results.values() for cr in bm_res.values()])
-    
+
     def areMetricsSame(self, metrics: Iterable[str]) -> bool:
         """Tests if all benchmarks over specified metrics compare same"""
         return all(["~" == bm_res[m].result for bm_res in self.results.values() for m in metrics])
@@ -89,6 +100,7 @@ def compareStats(
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
     debug_log=True,
+    store_sets: bool = False,
     scipy_bug_workaround: None | bool = None,
 ) -> CompareStatsResult:
     """Perform comparison for statistical significance between two groups of sets of statistics
@@ -98,6 +110,9 @@ def compareStats(
     is another dictionary metric_name->iterable_of_metric_values.
 
     `debug_log` is a bool, but could also be None (==False) or a standard logger object.
+
+    `store_sets` is a bool, True will make store whole corresponding dataset into a BmCompResult
+    instead of a mean of the set.
 
     `scipy_bug_workaround`: scipy.stats.brunnermunzel() method at least in versions 1.10-1.15.2 has
     what I consider to be a bug (https://github.com/scipy/scipy/issues/22664) that causes warnings
@@ -249,8 +264,8 @@ def compareStats(
                     if less_positive
                     else (greater_pvalue if greater_positive else min(less_pvalue, greater_pvalue))
                 ),
-                np.mean(stats1),
-                np.mean(stats2),
+                stats1 if store_sets else np.mean(stats1),
+                stats2 if store_sets else np.mean(stats2),
                 # is_reliable,
                 size1,
                 size2,

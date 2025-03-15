@@ -43,7 +43,14 @@ def main():
                 f"Bonferroni correction for {len(s1)} comparisons turns alpha={args.alpha:.3e} into {alpha:.3e}"
             )
 
-    cr = compareStats(s1, s2, method=args.method, alpha=alpha, debug_log=logger)
+    cr = compareStats(
+        s1,
+        s2,
+        method=args.method,
+        alpha=alpha,
+        debug_log=logger,
+        store_sets=args.sample_stats is not None,
+    )
 
     # not passing args.main_metrics and not making render do that to make sure we correctly refer
     # to indexes in args.metrics. compareStats() doesn't explicitly guarantee to keep the order.
@@ -56,12 +63,14 @@ def main():
         cr,
         expect_same=args.expect_same,
         main_metrics=main_metrics,
+        sample_stats=args.sample_stats,
         export_to=args.export_to,
         export_fmt=args.export_fmt,
         export_dark=not args.export_light,
         disable_colors=args.no_colors,
         show_sample_sizes=not args.hide_sample_sizes,
-        always_show_pvalues=args.always_show_pvalues
+        always_show_pvalues=args.always_show_pvalues,
+        multiline=args.multiline,
     )
 
     if cr.at_least_one_differs:

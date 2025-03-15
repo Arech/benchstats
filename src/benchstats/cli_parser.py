@@ -1,7 +1,7 @@
 import argparse
 from .compare import kMethods, kDefaultAlpha
 from .parsers import getBuiltinParsers
-from .render import kAvailableFormats
+from .render import kAvailableFormats, kPossibleStatNames
 
 
 def makeParser():
@@ -158,6 +158,25 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
+        "--hide_sample_sizes",
+        help="If set, hides sizes of datasets used in a test",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--sample_stats",
+        help="Sets which additional statistics about compared samples sets to show. Could be any sequence of floats "
+        "(must be in range [0,100], designating a percentile value to calculate), or shortcuts '"
+        f"{'\', \''.join(kPossibleStatNames.keys())}' (shortenings are accepted). Use of 'std', though isn't "
+        "recommended as standard deviation doesn't really mean anything for most distributions "
+        "beyond Normal.",
+        nargs="+",  # default value doesn't work with *, while it must
+        metavar="<stat ids>",
+        default=None#[next(iter(kPossibleStatNames.keys()))],
+    )
+
+    parser.add_argument(
         "--expect_same",
         help="If set, assumes that distributions are the same (i.e. H0 hypothesis is true) and shows some additional "
         "statistics useful for ensuring that a benchmark code is stable enough, or the machine is quiesced enough. "
@@ -182,6 +201,13 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
+        "--multiline",
+        help="If set, results of a benchmark could be print on multiple lines.",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
         "--export_to",
         help="Path to file to store comparison results to.",
         metavar="<path/to/export_file>",
@@ -199,13 +225,6 @@ class myCSV(ParserBase):
     parser.add_argument(
         "--export_light",
         help="If set, uses light theme instead of dark",
-        action="store_true",
-        default=False,
-    )
-
-    parser.add_argument(
-        "--hide_sample_sizes",
-        help="If set, hides sizes of datasets used in a test",
         action="store_true",
         default=False,
     )
