@@ -60,10 +60,16 @@ def makeReadable(value: float, prec: int):
     """Prints float `value` in a readable form with a corresponding suffix (if it's known, otherwise
     uses scientific notation) and given precision"""
 
+    sign = "" if value >= 0 else "-"
+    value = abs(value)
+
     def _render(v: float):
-        if v>=100.0:
-            return f"{v:{prec+4}.{prec}f}"
-        return f"{v:{prec+4}.{prec+1}f}" if v >= 10.0 else f"{v:{prec+4}.{prec+2}f}"
+        if v >= 100.0:
+            return f"{sign}{v:{prec+4}.{prec}f}"
+        return f"{sign}{v:{prec+4}.{prec+1}f}" if v >= 10.0 else f"{sign}{v:{prec+4}.{prec+2}f}"
+
+    if 0==value:
+        return _render(0)
 
     if value >= 1:
         return _render(value)
@@ -83,7 +89,7 @@ def makeReadable(value: float, prec: int):
     value *= 1000
     if value >= 1:
         return _render(value) + "f"
-    return f"{orig_value:.{prec}e}"
+    return f"{sign}{orig_value:.{prec}e}"
 
 
 def _sanitizeSampleStats(sample_stats, perc_fmt):
@@ -225,7 +231,6 @@ def renderComparisonResults(
     show_sample_stats_std = sample_stats is not None and sample_stats["std"]
     std_sep = "," if show_sample_stats_perc else ""
     stats_set_delim = delim_space if show_sample_stats_perc else " "
-
 
     for bm_name, results in comp_res.results.items():
         diff_main = any([r.result != "~" for m, r in results.items() if m in main_metrics])

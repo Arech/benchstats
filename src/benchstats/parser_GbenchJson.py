@@ -70,7 +70,8 @@ class parser_GbenchJson(ParserBase):
                             else 1.0
                         )
                         for b in bms
-                    ]
+                    ],
+                    dtype=np.float64,  # no point in bigger dtype, as internally it's doubles
                 )
                 for m in metrics
             }
@@ -183,16 +184,3 @@ class parser_GbenchJson(ParserBase):
 
             results["benchmarks"] = sortBms(filter(take_bench, results["benchmarks"]))
             return results
-
-
-"""
-if __name__ == "__main__":
-    log = getLogger()
-    stats, iters = SourceGbenchJson(
-        "../../../my_bench/noise_distr/bm1.json",
-        None,
-        ["real_time", "0%"],
-    ).getStats()
-
-    log.info("", stats=stats, iters=iters)
-"""
