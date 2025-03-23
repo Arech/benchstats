@@ -2,17 +2,14 @@
 
 from collections.abc import Iterable
 import numpy as np
-import os
 import rich
 import rich.style
 from rich.text import Text
-from rich.terminal_theme import DIMMED_MONOKAI as DarkTheme, DEFAULT_TERMINAL_THEME as LightTheme
 import math
 
+from .common import LoggingConsole
 from .compare import CompareStatsResult, kMethods
 
-
-kAvailableFormats = ("txt", "svg", "html")
 
 # values are how many chars should be the same to trigger match
 kPossibleStatNames = {"extremums": 2, "median": 3, "iqr": 2, "std": 3}
@@ -40,22 +37,6 @@ kDefaultStyles = {
 }
 
 
-def _detectExportFormat(export_to, export_fmt):
-    assert (export_to is None and export_fmt is None) or (
-        isinstance(export_to, str) and len(export_to) > 0
-    )
-    assert export_fmt is None or export_fmt in kAvailableFormats
-
-    if export_to is not None and export_fmt is None:
-        root, ext = os.path.splitext(export_to)
-        assert ext in [
-            "." + e for e in kAvailableFormats
-        ], f"Unrecognized export file extension '{ext}' of a file in --export_to parameter"
-        export_fmt = ext[1:]
-
-    return export_fmt
-
-
 def makeReadable(value: float, prec: int):
     """Prints float `value` in a readable form with a corresponding suffix (if it's known, otherwise
     uses scientific notation) and given precision"""
@@ -68,7 +49,7 @@ def makeReadable(value: float, prec: int):
             return f"{sign}{v:{prec+4}.{prec}f}"
         return f"{sign}{v:{prec+4}.{prec+1}f}" if v >= 10.0 else f"{sign}{v:{prec+4}.{prec+2}f}"
 
-    if 0==value:
+    if 0 == value:
         return _render(0)
 
     if value >= 1:
@@ -145,10 +126,8 @@ def _sanitizeSampleStats(sample_stats, perc_fmt):
 
 def renderComparisonResults(
     comp_res: CompareStatsResult,
-    export_to: None | str = None,
-    export_fmt: None | str = None,
-    export_dark: bool = True,  # use dark theme
-    disable_colors: bool = False,
+    console: LoggingConsole | None,  # if none will construct own
+    dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
     main_metrics: Iterable[str] = None,
@@ -167,8 +146,7 @@ def renderComparisonResults(
         return style_overrides.get(field, kDefaultStyles[field])
 
     sample_stats, _column_descr = _sanitizeSampleStats(sample_stats, _getFmt("header_perc_fmt"))
-    export_fmt = _detectExportFormat(export_to, export_fmt)
-
+    
     pval_fmt = _getFmt("pval_format")
     # a failsafe against too small alpha and consequently pvals for differences
     pval_fmt = (
@@ -187,8 +165,8 @@ def renderComparisonResults(
     assert title is None or isinstance(title, str)
 
     delim_space = "\n" if multiline else " "
-    delim_nospace = "\n" if multiline else ""
-    delim_space_multiline = " " if multiline else ""
+    # delim_nospace = "\n" if multiline else ""
+    # delim_space_multiline = " " if multiline else ""
 
     _column_descr = (
         f",{delim_space}{_column_descr}"
@@ -215,7 +193,7 @@ def renderComparisonResults(
     def _makeColumns(metr: Iterable[str]) -> list[str]:
         return [f"{m} (means){_column_descr}" for m in metr]
 
-    theme_style = "dark" if export_dark else "light"
+    theme_style = "dark" if dark_theme else "light"
     row_styles_fld = f"row_styles_{theme_style}"
     _def_justify = "left"  # unfortunately, applies to all rows, instead of only captions
     table = rich.table.Table(
@@ -307,12 +285,10 @@ def renderComparisonResults(
 
         table.add_row(Text(bm_name, style=_getFmt(bm_fld)), *cols)
 
-    console = rich.console.Console(
-        record=(export_fmt is not None),
-        color_system=(None if disable_colors else "auto"),
-        emoji=False,
-        highlight=False,
-    )
+    if console is None:
+        console = LoggingConsole(emoji=False, highlight=False)
+    else:
+        assert isinstance(console, LoggingConsole)
 
     console.print(table)
 
@@ -334,12 +310,3 @@ def renderComparisonResults(
                 f" for [bold]>[/bold] {fp_g:{tot_width}d} ({fp_g*100/n_total:{3+prec}.{prec}f}%)"
             )
 
-    if export_fmt is not None:
-        if "txt" == export_fmt:
-            console.save_text(export_to)
-        elif "svg" == export_fmt:
-            console.save_svg(export_to, title="", theme=DarkTheme if export_dark else LightTheme)
-        elif "html" == export_fmt:
-            console.save_html(export_to, theme=DarkTheme if export_dark else LightTheme)
-        else:
-            assert False, "NOT IMPLEMENTED?!"

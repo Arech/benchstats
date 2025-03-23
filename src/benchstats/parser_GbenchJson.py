@@ -3,7 +3,7 @@ import numpy as np
 import re
 
 # also must use abs package path to be dynamically loadable
-from benchstats.common import ParserBase, getLogger
+from benchstats.common import ParserBase, LoggingConsole
 
 
 class parser_GbenchJson(ParserBase):
@@ -24,7 +24,8 @@ class parser_GbenchJson(ParserBase):
             of Google Benchmark binary.
         - filter is None or a string with a regular expression to match against a benchmark name.
         - metrics is a list of string representing metrics to extract for each benchmark repetition.
-        - debug_log is a flag to enable/disable logging, or a standard logger object to send logs to
+        - debug_log is a flag to enable/disable logging, or a logger object like LoggingConsole to
+            send logs to
         """
         assert isinstance(json_file_path, str)
         assert filter is None or isinstance(filter, (str, re.Pattern))
@@ -35,7 +36,7 @@ class parser_GbenchJson(ParserBase):
             self.debug_log = False
         elif isinstance(debug_log, bool) and debug_log:
             self.debug_log = True
-            self.logger = getLogger()
+            self.logger = LoggingConsole(log_level=LoggingConsole.LogLevel.Debug)
         else:
             self.debug_log = True
             self.logger = debug_log
@@ -43,8 +44,8 @@ class parser_GbenchJson(ParserBase):
         self.file = json_file_path
         self.filter = filter
 
-        # if self.debug_log:
-        #    self.logger.debug("%s: Loading '%s'", self.__class__.__name__, json_file_path)
+        if self.debug_log:
+            self.logger.debug("%s: Loading '%s'" % (self.__class__.__name__, json_file_path))
 
         raw_bms = self._getRawBenchmarksGrouped(self._load())
         # self._iterationData = self._getRawBmsIterations(raw_bms)
@@ -87,10 +88,8 @@ class parser_GbenchJson(ParserBase):
             if self.debug_log and not all([iters == b["iterations"] for b in ind_bms]):
                 self.logger.error(
                     "%s: Not all repetitions of the same benchmark '%s' have the same number of iterations %d! "
-                    "Report of iterations number will be incorrect for the benchmark!",
-                    self.__class__.__name__,
-                    bm_name,
-                    iters,
+                    "Report of iterations number will be incorrect for the benchmark!"
+                    % (self.__class__.__name__, bm_name, iters)
                 )
             ret[bm_name] = iters
         return ret
@@ -128,10 +127,8 @@ class parser_GbenchJson(ParserBase):
             if self.debug_log:
                 self.logger.error(
                     "%s: didn't find '%s' object when reading file '%s'. "
-                    "Will try to proceed, but no guarantees...",
-                    self.__class__.__name__,
-                    obj_name,
-                    self.file,
+                    "Will try to proceed, but no guarantees..."
+                    % (self.__class__.__name__, obj_name, self.file)
                 )
 
         def sortBms(bms):
@@ -162,10 +159,8 @@ class parser_GbenchJson(ParserBase):
                         self.logger.error(
                             "%s: unexpected schema version %s found when reading file '%s'. "
                             "Only version 1 is supported by now. "
-                            "Will try to proceed, but no guarantees...",
-                            self.__class__.__name__,
-                            str(json_schema_version),
-                            self.file,
+                            "Will try to proceed, but no guarantees..."
+                            % (self.__class__.__name__, str(json_schema_version), self.file)
                         )
                 else:
                     logError("context::json_schema_version")
@@ -176,9 +171,7 @@ class parser_GbenchJson(ParserBase):
                 if self.debug_log:
                     self.logger.failure(
                         "%s: didn't find 'benchmarks' object when reading file '%s'. "
-                        "No data to read!",
-                        self.__class__.__name__,
-                        self.file,
+                        "No data to read!" % (self.__class__.__name__, self.file)
                     )
                 raise RuntimeError(f"No data to read from '{self.file}'")
 

@@ -1,7 +1,8 @@
 import argparse
+from .common import kAvailableFormats
 from .compare import kMethods, kDefaultAlpha
 from .parsers import getBuiltinParsers
-from .render import kAvailableFormats, kPossibleStatNames
+from .render import kPossibleStatNames
 
 
 def makeParser():
@@ -158,22 +159,24 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
-        "--hide_sample_sizes",
-        help="If set, hides sizes of datasets used in a test",
-        action="store_true",
-        default=False,
+        "--sample_sizes",
+        help="Controls whether to show sizes of datasets used in a test. Default %(default)s",
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
 
+    # py3.11 doesn't accept backslashes in f-strings, so preparing that in advance
+    stat_options = "', '".join(kPossibleStatNames.keys())
     parser.add_argument(
         "--sample_stats",
         help="Sets which additional statistics about compared samples sets to show. Could be any sequence of floats "
-        "(must be in range [0,100], designating a percentile value to calculate), or shortcuts '"
-        f"{'\', \''.join(kPossibleStatNames.keys())}' (shortenings are accepted). Use of 'std', though isn't "
+        "(must be in range [0,100], designating a percentile value to calculate), or aliases '"
+        f"{stat_options}' (shortenings are accepted). Use of 'std', though isn't "
         "recommended as standard deviation doesn't really mean anything for most distributions "
         "beyond Normal.",
         nargs="+",  # default value doesn't work with *, while it must
         metavar="<stat ids>",
-        default=None#[next(iter(kPossibleStatNames.keys()))],
+        default=None,
     )
 
     parser.add_argument(
@@ -187,23 +190,23 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
-        "--no_debug_log",
-        help="If set, disables debug logging to stdout",
-        action="store_true",
-        default=False,
+        "--show_debug",
+        help="Shows some additional debugging info. Default: %(default)s",
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
 
     parser.add_argument(
-        "--no_colors",
-        help="If set, disables colored output",
-        action="store_true",
-        default=False,
+        "--colors",
+        help="Controls if the output should be colored. Default: %(default)s",
+        action=argparse.BooleanOptionalAction,
+        default=True,
     )
 
     parser.add_argument(
         "--multiline",
-        help="If set, results of a benchmark could be print on multiple lines.",
-        action="store_true",
+        help="Controls if benchmark results could span several lines. Default: %(default)s",
+        action=argparse.BooleanOptionalAction,
         default=False,
     )
 

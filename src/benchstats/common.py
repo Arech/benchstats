@@ -2,9 +2,12 @@
 data in format suitable for calling compare::compareStats()
 """
 
-import logging
-import structlog
+import os
+import rich.console
 from collections.abc import Iterable
+import enum
+
+kAvailableFormats = ("txt", "svg", "html")
 
 
 class ParserBase:
@@ -18,7 +21,8 @@ class ParserBase:
             is needed.
             Typically, it's a string with a regular expression to match against a benchmark name.
         - metrics is a list of string representing metrics to extract for each benchmark repetition.
-        - debug_log is a flag to enable/disable logging, or a standard logger object to send logs to
+        - debug_log is a flag to enable/disable logging, or a logger object like LoggingConsole to
+            send logs to.
         """
         pass  # derived class knows what to do
 
@@ -30,20 +34,78 @@ class ParserBase:
         raise RuntimeError("DERIVED CLASS MUST IMPLEMENT METHOD")
 
 
-def getLogger():
-    if not structlog.is_configured():
-        structlog.configure(
-            processors=[
-                structlog.contextvars.merge_contextvars,
-                structlog.processors.add_log_level,
-                # structlog.processors.StackInfoRenderer(),
-                # structlog.dev.set_exc_info,
-                # structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
-                structlog.dev.ConsoleRenderer(),
-            ],
-            wrapper_class=structlog.make_filtering_bound_logger(logging.NOTSET),
-            context_class=dict,
-            logger_factory=structlog.PrintLoggerFactory(),
-            cache_logger_on_first_use=False,
-        )
-    return structlog.get_logger()
+def detectExportFormat(export_to, export_fmt):
+    assert (export_to is None and export_fmt is None) or (
+        isinstance(export_to, str) and len(export_to) > 0
+    )
+    assert export_fmt is None or export_fmt in kAvailableFormats
+
+    if export_to is not None and export_fmt is None:
+        root, ext = os.path.splitext(export_to)
+        assert ext in [
+            "." + e for e in kAvailableFormats
+        ], f"Unrecognized export file extension '{ext}' of a file in --export_to parameter"
+        export_fmt = ext[1:]
+
+    return export_fmt
+
+
+class LoggingConsole(rich.console.Console):
+
+    @enum.verify(enum.CONTINUOUS)
+    class LogLevel(enum.IntEnum):
+        Debug = (0,)
+        Info = (1,)
+        Warning = (2,)
+        Error = (3,)
+        Failure = (4,)
+        Critical = 5
+
+    def __init__(self, log_level: LogLevel = LogLevel.Debug, use_color: bool = True, **kwargs):
+        assert isinstance(log_level, LoggingConsole.LogLevel)
+        self.log_level = log_level
+        if "color_system" not in kwargs and isinstance(use_color, bool):
+            kwargs["color_system"] = "auto" if use_color else None
+        if "emoji" not in kwargs:
+            kwargs["emoji"] = False
+        if "highlight" not in kwargs:
+            kwargs["highlight"] = False
+        super().__init__(**kwargs)
+
+    def _do_log(self, color: str, lvl: str, *args, **kwargs):
+        if "sep" in kwargs:
+            sep = kwargs["sep"] if len(kwargs["sep"]) > 0 else " "
+        else:
+            sep = " "
+            kwargs["sep"] = sep
+        return super().print(f"\[[{color}]{lvl:4s}[/{color}]]{sep}", *args, **kwargs)
+
+    def debug(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Debug:
+            return None
+        return self._do_log("gray", "dbg", *args, **kwargs)
+
+    def info(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Info:
+            return None
+        return self._do_log("white", "info", *args, **kwargs)
+
+    def warning(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Warning:
+            return None
+        return self._do_log("yellow", "warn", *args, **kwargs)
+
+    def error(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Error:
+            return None
+        return self._do_log("orange", "Err", *args, **kwargs)
+
+    def failure(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Failure:
+            return None
+        return self._do_log("red", "FAIL", *args, **kwargs)
+
+    def critical(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Critical:
+            return None
+        return self._do_log("magenta", "CRIT", *args, **kwargs)

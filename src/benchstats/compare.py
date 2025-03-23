@@ -2,7 +2,7 @@ from collections.abc import Iterable
 import numpy as np
 from recordclass import dataobject  # , astuple, asdict
 import scipy.stats
-from .common import getLogger
+from .common import LoggingConsole
 
 
 # supported statistical methods.
@@ -99,7 +99,7 @@ def compareStats(
     sg2: dict[str, dict[str, Iterable[float]]],
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
-    debug_log=True,
+    debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
     scipy_bug_workaround: None | bool = None,
 ) -> CompareStatsResult:
@@ -109,7 +109,7 @@ def compareStats(
     Each group is represented by a dictionary where key specifies a benchmark name and value
     is another dictionary metric_name->iterable_of_metric_values.
 
-    `debug_log` is a bool, but could also be None (==False) or a standard logger object.
+    `debug_log` is a bool, but could also be None (==False) or a logger object like LoggingConsole.
 
     `store_sets` is a bool, True will make store whole corresponding dataset into a BmCompResult
     instead of a mean of the set.
@@ -134,7 +134,7 @@ def compareStats(
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
         debug_log = False
     elif isinstance(debug_log, bool) and debug_log:
-        logger = getLogger()
+        logger = LoggingConsole(log_level=LoggingConsole.LogLevel.Debug)
     else:
         logger = debug_log
         debug_log = True
@@ -144,15 +144,13 @@ def compareStats(
 
     def warn(*args, **kwargs):
         if debug_log:
-            logger.warning(*args, **kwargs)
+            logger.warning(args[0] % args[1:], **kwargs)
 
-    """if debug_log:
+    if debug_log:
         logger.debug(
-            "Comparing datasets with %s and alpha=%.6f",
-            kMethods[method]["name"],
-            alpha,
-            use_scipy_bug_workaround=scipy_bug_workaround,
-        )"""
+            "Comparing datasets with %s and alpha=%.6f, use_scipy_bug_workaround=%s"
+            % (kMethods[method]["name"], alpha, scipy_bug_workaround)
+        )
 
     common_bms = sg1.keys() & sg2.keys()
     if len(common_bms) != len(sg1) or len(common_bms) != len(sg2):
@@ -272,22 +270,3 @@ def compareStats(
             )
         results[bm_name] = bm_results
     return CompareStatsResult(results, method, alpha, bool(at_least_one_differs))
-
-
-"""
-if __name__ == "__main__":
-    s11 = np.zeros((10,))
-    s21 = np.ones((10,))
-
-    s12 = np.arange(0, 10)
-    s22 = np.arange(-11, -1)
-
-    sg1 = {"bm1": {"less": s11, "greater": s12, "same": s11, "slightly_less": s12}}
-    sg2 = {"bm1": {"less": s21, "greater": s22, "same": s11, "slightly_less": (s12 + 1)}}
-
-    res = compareStats(sg1, sg2)
-    getLogger().info("Brunner", res=res)
-    
-    res = compareStats(sg1, sg2, 'mannwhitneyu')
-    getLogger().info("MannWhitney", res=res)
-    """
