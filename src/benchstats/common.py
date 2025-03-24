@@ -3,6 +3,7 @@ data in format suitable for calling compare::compareStats()
 """
 
 import os
+import re
 import rich.console
 from collections.abc import Iterable
 import enum
@@ -109,3 +110,21 @@ class LoggingConsole(rich.console.Console):
         if self.log_level > LoggingConsole.LogLevel.Critical:
             return None
         return self._do_log("magenta", "CRIT", *args, **kwargs)
+
+
+def bmNamesTransform(
+    stats: dict[str, dict[str, Iterable[float]]], re_from: str | None, re_to: str | None
+) -> dict[str, dict[str, Iterable[float]]]:
+    assert isinstance(stats, dict)
+    if re_from is None:
+        # not nice that it glues func args with CLI args, but ok to simplify err handling
+        assert re_to is None, "--to can only be used when there's a corresponding --from"
+        return stats
+    assert isinstance(re_from, str) and len(re_from) > 0
+    if re_to is None:
+        re_to = ""
+    else:
+        assert isinstance(re_to, str)
+
+    r = re.compile(re_from)
+    return {r.subn(re_to, bm_name)[0]: bm_metrics for bm_name, bm_metrics in stats.items()}

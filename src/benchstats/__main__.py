@@ -1,18 +1,12 @@
 # using abs path only here to alleviate debugging
 from benchstats.compare import compareStats
-from benchstats.common import LoggingConsole, detectExportFormat
+from benchstats.common import LoggingConsole, detectExportFormat, bmNamesTransform
 from benchstats.cli_parser import makeParser
 from benchstats.render import renderComparisonResults
 from benchstats.parsers import getParserFor
 
 import os
 from rich.terminal_theme import DIMMED_MONOKAI as DarkTheme, DEFAULT_TERMINAL_THEME as LightTheme
-
-"""
-TODO:
-- how to compare different bms from the same file (i.e. bm name translation method)?
-- add credits to CLI parser
-"""
 
 
 def main():
@@ -45,6 +39,17 @@ def main():
 
     s1 = Parser1(args.file1, args.filter1, args.metrics, debug_log=console).getStats()
     s2 = Parser2(args.file2, args.filter2, args.metrics, debug_log=console).getStats()
+
+    s1 = bmNamesTransform(
+        s1,
+        getattr(args, "from") if args.from1 is None else args.from1,
+        args.to if args.to1 is None else args.to1,
+    )
+    s2 = bmNamesTransform(
+        s2,
+        getattr(args, "from") if args.from2 is None else args.from2,
+        args.to if args.to2 is None else args.to2,
+    )
 
     alpha = args.alpha
     if args.bonferroni:

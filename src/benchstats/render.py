@@ -136,8 +136,20 @@ def renderComparisonResults(
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
     always_show_pvalues: bool = False,
     multiline: bool = True,  # per metric report uses several lines
-):
+) -> None:
+    if console is None:
+        console = LoggingConsole(emoji=False, highlight=False)
+    else:
+        assert isinstance(console, LoggingConsole)
+
     assert isinstance(comp_res, CompareStatsResult)
+    if len(comp_res.results) < 1:
+        console.failure(
+            "Object with comparison results is empty. Perhaps there was no "
+            "intersection in benchmark names between set1 and set2?"
+        )
+        return
+
     if style_overrides is None:
         style_overrides = kDefaultStyles
     assert isinstance(style_overrides, dict)
@@ -146,7 +158,7 @@ def renderComparisonResults(
         return style_overrides.get(field, kDefaultStyles[field])
 
     sample_stats, _column_descr = _sanitizeSampleStats(sample_stats, _getFmt("header_perc_fmt"))
-    
+
     pval_fmt = _getFmt("pval_format")
     # a failsafe against too small alpha and consequently pvals for differences
     pval_fmt = (
@@ -285,11 +297,6 @@ def renderComparisonResults(
 
         table.add_row(Text(bm_name, style=_getFmt(bm_fld)), *cols)
 
-    if console is None:
-        console = LoggingConsole(emoji=False, highlight=False)
-    else:
-        assert isinstance(console, LoggingConsole)
-
     console.print(table)
 
     if expect_same:
@@ -309,4 +316,3 @@ def renderComparisonResults(
                 f" for [bold]<[/bold] {fp_l:{tot_width}d} ({fp_l*100/n_total:{3+prec}.{prec}f}%)"
                 f" for [bold]>[/bold] {fp_g:{tot_width}d} ({fp_g*100/n_total:{3+prec}.{prec}f}%)"
             )
-

@@ -75,7 +75,7 @@ class CompareStatsResult(dataobject, readonly=True):
 
     def __init__(self, res: dict[str, dict[str, BmCompResult]], met: str, al: float, one_dif: bool):
         """Constructor to verify correctness of initialization. Don't look too far"""
-        assert isinstance(res, dict) and len(res) > 0 and isinstance(met, str) and len(met) > 0
+        assert isinstance(res, dict) and isinstance(met, str) and len(met) > 0
         assert isinstance(al, kAllowedFpTypes) and isinstance(one_dif, (bool, np.bool_))
         super().__init__(res, met, float(al), bool(one_dif))
 
@@ -192,7 +192,7 @@ def compareStats(
     for bm_name, metrics1 in sg1.items():
         assert isinstance(bm_name, str)
         if bm_name not in sg2:
-            warn("Key/benchmark name %s not found in groupset2", bm_name)
+            warn("Key/benchmark name '%s' not found in groupset2", bm_name)
             continue
         metrics2 = sg2[bm_name]
         assert isinstance(metrics1, dict) and isinstance(metrics2, dict)
@@ -202,7 +202,7 @@ def compareStats(
             assert isinstance(metric_name, str)
             if metric_name not in metrics2:
                 warn(
-                    "benchmark %s, metric %s not found in metrics for groupset2",
+                    "benchmark '%s', metric '%s' not found in metrics for groupset2",
                     bm_name,
                     metric_name,
                 )
@@ -220,7 +220,7 @@ def compareStats(
             size1, size2 = np.size(stats1), np.size(stats2)
             if size1 < kMinStatsSize or size2 < kMinStatsSize:
                 warn(
-                    "benchmark %s, metric %s, one of sizes (%d, %d) is less than min possible size %d",
+                    "benchmark '%s', metric '%s', one of sizes (%d, %d) is less than min possible size %d",
                     bm_name,
                     metric_name,
                     size1,
@@ -232,7 +232,7 @@ def compareStats(
             is_reliable = size1 >= kMinReliableStatsSize and size2 >= kMinReliableStatsSize
             if not is_reliable:
                 warn(
-                    "benchmark %s, metric %s, one of sizes (%d, %d) is less than min recommended size %d. "
+                    "benchmark '%s', metric '%s', one of sizes (%d, %d) is less than min recommended size %d. "
                     "Results might be not reliable",
                     bm_name,
                     metric_name,
@@ -246,7 +246,7 @@ def compareStats(
             if less_positive and greater_positive:
                 # not sure this is a correct interpretation, but dunno what's better
                 warn(
-                    "benchmark %s, metric %s: both sides of the test indicate positive results. "
+                    "benchmark '%s', metric '%s': both sides of the test indicate positive results. "
                     "Interpreting as 'no difference'",
                     bm_name,
                     metric_name,

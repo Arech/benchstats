@@ -38,30 +38,49 @@ class myCSV(ParserBase):
     )
 
     parser.add_argument(
+        "--show_debug",
+        help="Shows some additional debugging info. Default: %(default)s",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+
+    g_inputs = parser.add_argument_group(
+        "Input data",
+        "Arguments describing how a source data sets are obtained and are optionally transformed.",
+    )
+
+    g_inputs.add_argument(
         "file1",
         help="Path to the first data file with benchmark results. See also --file1_parser and "
         "--filter1 arguments",
         metavar="<path/to/file1>",
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
+        "file2",
+        help="Path to the second data file with benchmark results. See also --file2_parser and "
+        "--filter2 arguments",
+        metavar="<path/to/file1>",
+    )
+
+    g_inputs.add_argument(
         "--files_parser",
-        help="Sets files parser class identifier, if a built-in parser used (options are: "
-        f"{', '.join(getBuiltinParsers())}). Or a path to .py file defining a custom parser, "
+        help="Sets files parser class identifier, if a built-in parser is used (options are: "
+        f"{', '.join(getBuiltinParsers())}). Or sets a path to .py file defining a custom parser, "
         "inherited from 'benchstats.common.ParserBase' class. The parser class name must be the "
-        "same as the file name. See below for example",
+        "same as the file name. See below for an example.",
         default="GbenchJson",
         metavar="<files parser class or path>",
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
         "--file1_parser",
-        help="Same as --files_parser, but applies only to file1.",
+        help="Same as --files_parser, but only applies to file1.",
         default=None,
         metavar="<file1 parser class or path>",
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
         "--filter1",
         help="If specified, sets a Python regular expression (see "
         "https://docs.python.org/3/howto/regex.html#regex-howto) to select benchmarks by name "
@@ -70,28 +89,70 @@ class myCSV(ParserBase):
         default=None,
     )
 
-    parser.add_argument(
-        "file2",
-        help="Path to the second data file with benchmark results. See also --file2_parser and "
-        "--filter2 arguments",
-        metavar="<path/to/file1>",
-    )
-
-    parser.add_argument(
+    g_inputs.add_argument(
         "--file2_parser",
-        help="Same as --files_parser, but applies only to file2.",
+        help="Same as --files_parser, but only applies to file2.",
         default=None,
         metavar="<file2 parser class or path>",
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
         "--filter2",
         help="Same as --filter1, but for <file2>",
         metavar="<reg expr>",
         default=None,
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
+        "--from",
+        help="--from and --to works in a pair and are used to describe benchmark names transformation. "
+        "--from sets a regular expression (Python re module flavor) to define a pattern to replace to --to replacement "
+        "string. "
+        "Typical use-cases include removing unnecessary parts of benchmark names (for example, Google Benchmark adds "
+        "some suffixes that might not convey useful information to you) or \"glueing\" results of different benchmarks "
+        "so they become comparable by the tool(for example, you have two benchmark names 'old_foo' with old algorithm "
+        "implementation and 'foo' with a new competeing algorithm implementation, and want to compare their performance "
+        "against each other, - then you want to remove 'old_' prefix from the first benchmark). ",
+        metavar="<reg expr>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
+        "--to",
+        help="See help for --from.",
+        metavar="<replacement string>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
+        "--from1",
+        help="Like --from, but only for <file1>",
+        metavar="<reg expr>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
+        "--to1",
+        help="Like --to, but only for <file1>.",
+        metavar="<replacement string>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
+        "--from2",
+        help="Like --from, but only for <file2>",
+        metavar="<reg expr>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
+        "--to2",
+        help="Like --to, but only for <file2>.",
+        metavar="<replacement string>",
+        default=None,
+    )
+
+    g_inputs.add_argument(
         "metrics",
         help="List of metric identifiers to use in tests for each benchmark. Default: %(default)s. "
         "For deterministic algorithms highly recommend measure and use minimum latency per "
@@ -100,7 +161,7 @@ class myCSV(ParserBase):
         default=["real_time"],
     )
 
-    parser.add_argument(
+    g_inputs.add_argument(
         "--main_metrics",
         help="Indexes in 'metrics' list specifying the main metrics. These are displayed differently and differences "
         "detected cause script to exit(1). Default: %(default)s.",
@@ -110,7 +171,9 @@ class myCSV(ParserBase):
         default=[0],
     )
 
-    parser.add_argument(
+    g_stats = parser.add_argument_group("Statistical settings")
+
+    g_stats.add_argument(
         "--method",
         help=(
             "Selects a method of statistical testing. Possible values are are: "
@@ -127,7 +190,7 @@ class myCSV(ParserBase):
         default=list(kMethods.keys())[0],
     )
 
-    parser.add_argument(
+    g_stats.add_argument(
         "--alpha",
         help="Set statistical significance level (a desired mistake probability level)\n"
         "Note! This is an actual probability of a mistake only when all preconditions of the "
@@ -140,7 +203,7 @@ class myCSV(ParserBase):
         default=kDefaultAlpha,
     )
 
-    parser.add_argument(
+    g_stats.add_argument(
         "--bonferroni",
         help="If set, applies a Bonferroni multiple comparisons correction "
         "(https://en.wikipedia.org/wiki/Bonferroni_correction).",
@@ -148,7 +211,9 @@ class myCSV(ParserBase):
         default=False,
     )
 
-    parser.add_argument(
+    g_rendering=parser.add_argument_group("Rendering", "Controls how results are rendered")
+
+    g_rendering.add_argument(
         "--always_show_pvalues",
         help="If set, always show pvalues. By default it shows pvalues only for significant differences. Note that "
         "when two sets are compared stochastically same (~), or more precisely, not stochastically less and not "
@@ -158,7 +223,7 @@ class myCSV(ParserBase):
         default=False,
     )
 
-    parser.add_argument(
+    g_rendering.add_argument(
         "--sample_sizes",
         help="Controls whether to show sizes of datasets used in a test. Default %(default)s",
         action=argparse.BooleanOptionalAction,
@@ -167,7 +232,7 @@ class myCSV(ParserBase):
 
     # py3.11 doesn't accept backslashes in f-strings, so preparing that in advance
     stat_options = "', '".join(kPossibleStatNames.keys())
-    parser.add_argument(
+    g_rendering.add_argument(
         "--sample_stats",
         help="Sets which additional statistics about compared samples sets to show. Could be any sequence of floats "
         "(must be in range [0,100], designating a percentile value to calculate), or aliases '"
@@ -179,7 +244,7 @@ class myCSV(ParserBase):
         default=None,
     )
 
-    parser.add_argument(
+    g_rendering.add_argument(
         "--expect_same",
         help="If set, assumes that distributions are the same (i.e. H0 hypothesis is true) and shows some additional "
         "statistics useful for ensuring that a benchmark code is stable enough, or the machine is quiesced enough. "
@@ -189,34 +254,29 @@ class myCSV(ParserBase):
         default=False,
     )
 
-    parser.add_argument(
-        "--show_debug",
-        help="Shows some additional debugging info. Default: %(default)s",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-    )
-
-    parser.add_argument(
+    g_rendering.add_argument(
         "--colors",
         help="Controls if the output should be colored. Default: %(default)s",
         action=argparse.BooleanOptionalAction,
         default=True,
     )
 
-    parser.add_argument(
+    g_rendering.add_argument(
         "--multiline",
         help="Controls if benchmark results could span several lines. Default: %(default)s",
         action=argparse.BooleanOptionalAction,
         default=False,
     )
 
-    parser.add_argument(
+    g_export = parser.add_argument_group("Export","Controls how to export results.")
+
+    g_export.add_argument(
         "--export_to",
         help="Path to file to store comparison results to.",
         metavar="<path/to/export_file>",
     )
 
-    parser.add_argument(
+    g_export.add_argument(
         "--export_fmt",
         help=f"Format of export file. Options are: {', '.join(kAvailableFormats)}. If not set, "
         "inferred from --export_to file extension",
@@ -225,7 +285,7 @@ class myCSV(ParserBase):
         metavar="<format id>",
     )
 
-    parser.add_argument(
+    g_export.add_argument(
         "--export_light",
         help="If set, uses light theme instead of dark",
         action="store_true",
