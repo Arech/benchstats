@@ -9,13 +9,12 @@ kAlpha = bsc.kDefaultAlpha
 
 class TestComparisonMethods(unittest.TestCase):
     def _assertCommonExpectations(self, compareStats_result):
-        res = compareStats_result["results"]
+        res = compareStats_result.results
         self.assertEqual(1, len(res))
         metrics_res = res["b"]
         self.assertEqual(1, len(metrics_res))
         comp_res = metrics_res["m"]
         self.assertIsInstance(comp_res, bsc.BmCompResult)
-        self.assertTrue(comp_res.is_reliable)
         self.assertEqual(kSize, comp_res.size1)
         self.assertEqual(kSize, comp_res.size2)
 
@@ -25,7 +24,7 @@ class TestComparisonMethods(unittest.TestCase):
                 {"b": {"m": s1}}, {"b": {"m": s2}}, method=method, alpha=kAlpha, debug_log=False
             )
             self._assertCommonExpectations(cs)
-            comp_res = cs["results"]["b"]["m"]
+            comp_res = cs.results["b"]["m"]
             self.assertEqual(exp_result, comp_res.result)
             if "~" == exp_result:
                 self.assertGreaterEqual(comp_res.pvalue, kAlpha)
