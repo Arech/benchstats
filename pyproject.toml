@@ -6,19 +6,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchstats"
-version = "0.0.1"
-
-# description = ""
-
+version = "1.0.0"
+description = "Benchmark results comparison using statistical tests"
 readme = "README.md"
-
-# authors = [{ name = "TODO", email = "TODO" }]
+# authors = [{ name = "Aleksei Rechinskii", email = "TODO" }]
 # license = { file = "LICENSE" }
-#classifiers = [
+classifiers = [
 #    "License :: OSI Approved :: MIT License",
-#    "Programming Language :: Python",
-#    "Programming Language :: Python :: 3",
-#]
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
 
 keywords = ["benchmarks", "statistics", "reports", "analysis"]
 
@@ -27,12 +24,9 @@ dependencies = [
     "numpy",
     "scipy",
     "recordclass",
-    # 'tomli; python_version < "3.11"',
 ]
-requires-python = ">=3.8"
-
-#[project.optional-dependencies]
-#dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+requires-python = ">=3.10"
+# due to using | in type hinting.
 
 [project.urls]
 Homepage = "https://github.com/Arech/benchstats"
@@ -42,4 +36,4 @@ benchstats = "benchstats.__main__:main"
 
 [tool.black]
 line-length = 100
-target-version = ['py313']
+target-version = ['py311']

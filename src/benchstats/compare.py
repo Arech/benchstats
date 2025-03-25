@@ -99,6 +99,7 @@ def compareStats(
     sg2: dict[str, dict[str, Iterable[float]]],
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
+    main_metrics: None | list[str] | tuple[str] = None,
     debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
     scipy_bug_workaround: None | bool = None,
@@ -108,6 +109,9 @@ def compareStats(
 
     Each group is represented by a dictionary where key specifies a benchmark name and value
     is another dictionary metric_name->iterable_of_metric_values.
+
+    `main_metrics` is either a list/tuple of strings describing containing main metrics for the
+    purpose of computing of at_least_one_differs flag, or None (then all metrics are main)
 
     `debug_log` is a bool, but could also be None (==False) or a logger object like LoggingConsole.
 
@@ -130,6 +134,7 @@ def compareStats(
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
     assert scipy_bug_workaround is None or isinstance(scipy_bug_workaround, bool)
+    assert main_metrics is None or isinstance(main_metrics, (list,tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
         debug_log = False
@@ -146,17 +151,20 @@ def compareStats(
         if debug_log:
             logger.warning(args[0] % args[1:], **kwargs)
 
-    if debug_log:
+    """if debug_log:
         logger.debug(
             "Comparing datasets with %s and alpha=%.6f, use_scipy_bug_workaround=%s"
             % (kMethods[method]["name"], alpha, scipy_bug_workaround)
-        )
+        )"""
 
     common_bms = sg1.keys() & sg2.keys()
     if len(common_bms) != len(sg1) or len(common_bms) != len(sg2):
         warn(
-            "Datasets contain different keys/benchmarks. Keys not found in both datasets will be ignored"
+            "Datasets contain different keys/benchmarks. Keys not found in both datasets will be ignored."
         )
+        if debug_log:
+            logger.debug("Benchmarks in set1:", ", ".join(sg1.keys()))
+            logger.debug("Benchmarks in set2:", ", ".join(sg2.keys()))
 
     valid_metric_set_type = (list, tuple, np.ndarray)
     at_least_one_differs = False
@@ -192,7 +200,7 @@ def compareStats(
     for bm_name, metrics1 in sg1.items():
         assert isinstance(bm_name, str)
         if bm_name not in sg2:
-            warn("Key/benchmark name '%s' not found in groupset2", bm_name)
+            warn("Key/benchmark name '%s' not found in set2", bm_name)
             continue
         metrics2 = sg2[bm_name]
         assert isinstance(metrics1, dict) and isinstance(metrics2, dict)
@@ -202,7 +210,7 @@ def compareStats(
             assert isinstance(metric_name, str)
             if metric_name not in metrics2:
                 warn(
-                    "benchmark '%s', metric '%s' not found in metrics for groupset2",
+                    "benchmark '%s', metric '%s' not found in metrics for set2",
                     bm_name,
                     metric_name,
                 )
@@ -253,7 +261,8 @@ def compareStats(
                 )
                 less_positive, greater_positive = False, False
 
-            at_least_one_differs = at_least_one_differs or less_positive or greater_positive
+            if main_metrics is None or metric_name in main_metrics:
+                at_least_one_differs = at_least_one_differs or less_positive or greater_positive
 
             bm_results[metric_name] = BmCompResult(
                 "<" if less_positive else (">" if greater_positive else "~"),

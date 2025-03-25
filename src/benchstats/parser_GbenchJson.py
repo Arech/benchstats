@@ -44,8 +44,8 @@ class parser_GbenchJson(ParserBase):
         self.file = json_file_path
         self.filter = filter
 
-        if self.debug_log:
-            self.logger.debug("%s: Loading '%s'" % (self.__class__.__name__, json_file_path))
+        # if self.debug_log:
+        #    self.logger.debug("%s: Loading '%s'" % (self.__class__.__name__, json_file_path))
 
         raw_bms = self._getRawBenchmarksGrouped(self._load())
         # self._iterationData = self._getRawBmsIterations(raw_bms)

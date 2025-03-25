@@ -109,10 +109,11 @@ class myCSV(ParserBase):
         "--from sets a regular expression (Python re module flavor) to define a pattern to replace to --to replacement "
         "string. "
         "Typical use-cases include removing unnecessary parts of benchmark names (for example, Google Benchmark adds "
-        "some suffixes that might not convey useful information to you) or \"glueing\" results of different benchmarks "
-        "so they become comparable by the tool(for example, you have two benchmark names 'old_foo' with old algorithm "
-        "implementation and 'foo' with a new competeing algorithm implementation, and want to compare their performance "
-        "against each other, - then you want to remove 'old_' prefix from the first benchmark). ",
+        "some suffixes that might not convey useful information) or \"glueing\" results of different benchmarks "
+        "so they become comparable by the tool (for example, you have two benchmarks, the first is 'old_foo' with old algorithm "
+        "implementation and the other is 'foo' with a new competing algorithm implementation, - to compare their performance "
+        "against each other, you just need to remove 'old_' prefix from the first benchmark with `--from old_`). "
+        "Remember to escape characters that have special meaning for the shell.",
         metavar="<reg expr>",
         default=None,
     )

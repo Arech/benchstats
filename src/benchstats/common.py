@@ -62,11 +62,9 @@ class LoggingConsole(rich.console.Console):
         Failure = (4,)
         Critical = 5
 
-    def __init__(self, log_level: LogLevel = LogLevel.Debug, use_color: bool = True, **kwargs):
+    def __init__(self, log_level: LogLevel = LogLevel.Debug, **kwargs):
         assert isinstance(log_level, LoggingConsole.LogLevel)
         self.log_level = log_level
-        if "color_system" not in kwargs and isinstance(use_color, bool):
-            kwargs["color_system"] = "auto" if use_color else None
         if "emoji" not in kwargs:
             kwargs["emoji"] = False
         if "highlight" not in kwargs:
@@ -113,12 +111,19 @@ class LoggingConsole(rich.console.Console):
 
 
 def bmNamesTransform(
-    stats: dict[str, dict[str, Iterable[float]]], re_from: str | None, re_to: str | None
+    stats: dict[str, dict[str, Iterable[float]]],
+    re_from: str | None,
+    re_to: str | None,
+    set_idx: int,
+    console: LoggingConsole,
 ) -> dict[str, dict[str, Iterable[float]]]:
-    assert isinstance(stats, dict)
+    assert isinstance(stats, dict) and isinstance(set_idx, int)
+    assert isinstance(console, LoggingConsole)
     if re_from is None:
         # not nice that it glues func args with CLI args, but ok to simplify err handling
-        assert re_to is None, "--to can only be used when there's a corresponding --from"
+        assert (
+            re_to is None
+        ), f"--to{set_idx} can only be used when there's a corresponding --from{set_idx}"
         return stats
     assert isinstance(re_from, str) and len(re_from) > 0
     if re_to is None:
@@ -127,4 +132,20 @@ def bmNamesTransform(
         assert isinstance(re_to, str)
 
     r = re.compile(re_from)
+
+    old_bms = stats.keys()
+    new_bms = [r.subn(re_to, bm_name)[0] for bm_name in old_bms]
+    unique_len = len(frozenset(new_bms))
+    if unique_len != len(new_bms):
+        console.warning(
+            f"--from{set_idx} -> --to{set_idx} regexp '{re_from}'->'{re_to}' is a narrowing conversion "
+            f"generates only {unique_len} unique name from {len(new_bms)}. This most likely"
+            " isn't what you want, since the order of narrowing is not specified and you might end"
+            " up having a wrong data for some new benchmark name."
+        )
+        console.debug("Old names are:", ", ".join(old_bms))
+        console.debug("New names are:", ", ".join(new_bms))
+    else:
+        assert unique_len == len(stats)
+
     return {r.subn(re_to, bm_name)[0]: bm_metrics for bm_name, bm_metrics in stats.items()}

@@ -21,10 +21,10 @@ def main():
             assert not os.path.exists(args.export_to), "Invalid --export_to value"
 
     console = LoggingConsole(
-        use_color=args.colors,
+        no_color=not args.colors,
         record=export_fmt is not None,
         log_level=(
-            LoggingConsole.LogLevel.Debug if args.show_debug else LoggingConsole.LogLevel.Error
+            LoggingConsole.LogLevel.Debug if args.show_debug else LoggingConsole.LogLevel.Warning
         ),
     )
 
@@ -44,11 +44,15 @@ def main():
         s1,
         getattr(args, "from") if args.from1 is None else args.from1,
         args.to if args.to1 is None else args.to1,
+        1,
+        console,
     )
     s2 = bmNamesTransform(
         s2,
         getattr(args, "from") if args.from2 is None else args.from2,
         args.to if args.to2 is None else args.to2,
+        2,
+        console,
     )
 
     alpha = args.alpha
@@ -58,21 +62,20 @@ def main():
             f"Bonferroni correction for {len(s1)} comparisons turns alpha={args.alpha:.3e} into {alpha:.3e}"
         )
 
-    cr = compareStats(
-        s1,
-        s2,
-        method=args.method,
-        alpha=alpha,
-        debug_log=console,
-        store_sets=args.sample_stats is not None,
-    )
-
-    # not passing args.main_metrics and not making render do that to make sure we correctly refer
-    # to indexes in args.metrics. compareStats() doesn't explicitly guarantee to keep the order.
     if args.main_metrics is None or len(args.main_metrics) < 1:
         main_metrics = [args.metrics[0]]
     else:
         main_metrics = [args.metrics[mi] for mi in args.main_metrics]
+
+    cr = compareStats(
+        s1,
+        s2,
+        method=args.method,
+        main_metrics=main_metrics,
+        alpha=alpha,
+        debug_log=console,
+        store_sets=args.sample_stats is not None,
+    )
 
     renderComparisonResults(
         cr,

@@ -5,3 +5,7 @@ __pycache__
 *.html
 *.svg
 *.txt
+!/docs/**/*.svg
+!/docs/**/*.txt
+!/docs/**/*.html
+/build
