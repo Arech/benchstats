@@ -1,6 +1,6 @@
 from collections.abc import Iterable
+from collections import namedtuple
 import numpy as np
-from recordclass import dataobject  # , astuple, asdict
 import scipy.stats
 from .common import LoggingConsole
 
@@ -24,26 +24,27 @@ kMinReliableStatsSize = 9
 
 kAllowedFpTypes = (float, np.floating)
 
+class BmCompResult(
+    namedtuple("BmCompResult", ["result", "pvalue", "val_set1", "val_set2", "size1", "size2"])
+):
+    __slots__ = ()
 
-class BmCompResult(dataobject, readonly=True):
-    result: str  # comparison result:
-    # < when set1 is stochastically less than set2,
-    # > when set1 is stochastically greater than set2,
-    # ~ when set1 is not stochastically less or greater than set2
+    def __new__(cls, res: str, pval: float, v1: float, v2: float, siz1: int, siz2: int):
+        """Constructor to verify initialization correctness
 
-    pvalue: float  # pvalue associated with less or greater comparison result, or a minimum of
-    # pvalues for less/greater comparison
+        - res/result is a comparison result:
+            < when set1 is stochastically less than set2,
+            > when set1 is stochastically greater than set2,
+            ~ when set1 is not stochastically less or greater than set2
+        
+        - pval/pvalue is a pvalue associated with less or greater comparison result, or a minimum of
+            pvalues for less/greater comparison
+        
+        - v1/val_set1 and v2/val_set2 are either representative values (mean) of a corresponding
+            set, or the whole set iself, depending on `store_sets` flag value of compareStats()
 
-    # is_reliable: bool  # if the results are reliable (judged by a size of source dataset)
-
-    val_set1: float | np.ndarray  # representative value (mean) of the set, or the whole set
-    val_set2: float | np.ndarray  # depending on store_sets flag of compareStats()
-
-    size1: int  # sizes of respective metric values set
-    size2: int
-
-    def __init__(self, res: str, pval: float, v1: float, v2: float, siz1: int, siz2: int):
-        """Constructor to verify correctness of initialization"""
+        siz1/size1 and siz2/size2 are sizes of respective metric value sets
+        """
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
         assert isinstance(pval, kAllowedFpTypes)
@@ -54,7 +55,8 @@ class BmCompResult(dataobject, readonly=True):
         assert isinstance(siz1, int) and isinstance(siz2, int)
         if isinstance(v1, np.ndarray):
             assert siz1 == len(v1) and siz2 == len(v2)
-        super().__init__(
+        return super().__new__(
+            cls,
             res,
             float(pval),
             v1 if isinstance(v1, np.ndarray) else float(v1),
@@ -64,20 +66,17 @@ class BmCompResult(dataobject, readonly=True):
         )
 
 
-class CompareStatsResult(dataobject, readonly=True):
-    results: dict[str, dict[str, BmCompResult]]
-    # mapping {benchmark_name -> {metric_name -> CompResult}}. Keys (benchmark_name's ) are common
-    # between the data sources sg1 and sg2
+class CompareStatsResult(namedtuple('CompareStatsResult',['results', 'method', 'alpha', 'at_least_one_differs'])):
+    __slots__ = ()
 
-    method: str
-    alpha: float
-    at_least_one_differs: bool
-
-    def __init__(self, res: dict[str, dict[str, BmCompResult]], met: str, al: float, one_dif: bool):
-        """Constructor to verify correctness of initialization. Don't look too far"""
+    def __new__(cls, res: dict[str, dict[str, BmCompResult]], met: str, al: float, one_dif: bool):
+        """Constructor to verify initialization correctness.
+        - res/results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys
+            (benchmark_name's ) are common between the data sources sg1 and sg2
+        """
         assert isinstance(res, dict) and isinstance(met, str) and len(met) > 0
         assert isinstance(al, kAllowedFpTypes) and isinstance(one_dif, (bool, np.bool_))
-        super().__init__(res, met, float(al), bool(one_dif))
+        return super().__new__(cls, res, met, float(al), bool(one_dif))
 
     def getMetrics(self) -> tuple[str]:
         return tuple(next(iter(self.results.values())).keys())
@@ -134,7 +133,7 @@ def compareStats(
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
     assert scipy_bug_workaround is None or isinstance(scipy_bug_workaround, bool)
-    assert main_metrics is None or isinstance(main_metrics, (list,tuple))
+    assert main_metrics is None or isinstance(main_metrics, (list, tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
         debug_log = False

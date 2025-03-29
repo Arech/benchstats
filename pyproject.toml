@@ -23,7 +23,6 @@ dependencies = [
     "rich",
     "numpy",
     "scipy",
-    "recordclass",
 ]
 requires-python = ">=3.10"
 # due to using | in type hinting.
