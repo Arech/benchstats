@@ -7,9 +7,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "benchstats"
 version = "1.0.0"
-description = "Benchmark results comparison using statistical tests"
+description = "Statistical Testing for Benchmark Results Comparison"
 readme = "README.md"
-# authors = [{ name = "Aleksei Rechinskii", email = "TODO" }]
+authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
 # license = { file = "LICENSE" }
 classifiers = [
 #    "License :: OSI Approved :: MIT License",

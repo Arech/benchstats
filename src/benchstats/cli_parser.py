@@ -20,7 +20,7 @@ import numpy as np
 from benchstats.common import ParserBase
 
 class myCSV(ParserBase):
-    def __init__(self, fpath, filter, metrics, debug_log=True) -> None:
+    def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
         self.stats = np.loadtxt(fpath, dtype=np.float64)
 
     def getStats(self) -> dict[str, dict[str, np.ndarray]]:
@@ -30,9 +30,9 @@ class myCSV(ParserBase):
         "It doesn't support filtering, different benchmarks and the metric is hardcoded - but you "
         "get the idea. It's that simple.\n"
         "Now to compare two datasets in csvs, just run:\n"
-        "python -m benchstats ./csv1.csv ./csv2.csv --files_parser ./myCSV.py\n\n"
+        "python -m benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py\n\n"
         "If you'll make a parser that could be useful to other people, please consider adding it "
-        "to the project's built-in parsers list by opening a thread with a suggestion in "
+        "to the project's built-in parsers set by opening a thread with a suggestion in "
         "https://github.com/Arech/benchstats/issues or by making a PR into the repo.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -60,7 +60,7 @@ class myCSV(ParserBase):
         "file2",
         help="Path to the second data file with benchmark results. See also --file2_parser and "
         "--filter2 arguments",
-        metavar="<path/to/file1>",
+        metavar="<path/to/file2>",
     )
 
     g_inputs.add_argument(
@@ -112,7 +112,8 @@ class myCSV(ParserBase):
         "some suffixes that might not convey useful information) or \"glueing\" results of different benchmarks "
         "so they become comparable by the tool (for example, you have two benchmarks, the first is 'old_foo' with old algorithm "
         "implementation and the other is 'foo' with a new competing algorithm implementation, - to compare their performance "
-        "against each other, you just need to remove 'old_' prefix from the first benchmark with `--from old_`). "
+        "against each other, you need to remove 'old_' prefix from the first benchmark with `--from old_`"
+        " and apply --filter1 and --filter2 to restrict loading only corresponding data for old or new variations). "
         "Remember to escape characters that have special meaning for the shell.",
         metavar="<reg expr>",
         default=None,
@@ -127,28 +128,28 @@ class myCSV(ParserBase):
 
     g_inputs.add_argument(
         "--from1",
-        help="Like --from, but only for <file1>",
+        help="Like --from, but for <file1> only",
         metavar="<reg expr>",
         default=None,
     )
 
     g_inputs.add_argument(
         "--to1",
-        help="Like --to, but only for <file1>.",
+        help="Like --to, but for <file1> only",
         metavar="<replacement string>",
         default=None,
     )
 
     g_inputs.add_argument(
         "--from2",
-        help="Like --from, but only for <file2>",
+        help="Like --from, but for <file2> only",
         metavar="<reg expr>",
         default=None,
     )
 
     g_inputs.add_argument(
         "--to2",
-        help="Like --to, but only for <file2>.",
+        help="Like --to, but for <file2> only",
         metavar="<replacement string>",
         default=None,
     )
@@ -156,7 +157,7 @@ class myCSV(ParserBase):
     g_inputs.add_argument(
         "metrics",
         help="List of metric identifiers to use in tests for each benchmark. Default: %(default)s. "
-        "For deterministic algorithms highly recommend measure and use minimum latency per "
+        "For deterministic algorithms highly recommend to measure and to use a minimum latency per "
         "repetition.",
         nargs="*",
         default=["real_time"],
@@ -195,7 +196,7 @@ class myCSV(ParserBase):
         "--alpha",
         help="Set statistical significance level (a desired mistake probability level)\n"
         "Note! This is an actual probability of a mistake only when all preconditions of the "
-        "chosen statistical test are met. One of the most important preconditions like indepence of "
+        "chosen statistical test are met. One of the most important preconditions like independence of "
         "individual measurements, or constancy of underlying distribution parameters are almost "
         "never met in a real-life benchmarking, even on a properly quiesced hardware. Real "
         "mistake rates are higher. Default %(default)s",
@@ -218,7 +219,7 @@ class myCSV(ParserBase):
         "--always_show_pvalues",
         help="If set, always show pvalues. By default it shows pvalues only for significant differences. Note that "
         "when two sets are compared stochastically same (~), or more precisely, not stochastically less and not "
-        "stochastically greater (see https://en.wikipedia.org/wiki/Stochastic_ordering), pvalue shown is minimum of "
+        "stochastically greater (see https://en.wikipedia.org/wiki/Stochastic_ordering), pvalue shown is a minimum of "
         "two pvalues for less and greater comparison.",
         action="store_true",
         default=False,
@@ -249,8 +250,8 @@ class myCSV(ParserBase):
         "--expect_same",
         help="If set, assumes that distributions are the same (i.e. H0 hypothesis is true) and shows some additional "
         "statistics useful for ensuring that a benchmark code is stable enough, or the machine is quiesced enough. "
-        "One good example is when <file1> and <file2> are made with exactly the same binary running on exactly the "
-        "same machine in the same state - on a machine with a proper setup tests shouldn't find difference.",
+        "One good example is when <file1> and <file2> were made with exactly the same binary running on exactly the "
+        "same machine in the same state - on a machine with a proper setup tests shouldn't find a difference.",
         action="store_true",
         default=False,
     )
@@ -279,7 +280,7 @@ class myCSV(ParserBase):
 
     g_export.add_argument(
         "--export_fmt",
-        help=f"Format of export file. Options are: {', '.join(kAvailableFormats)}. If not set, "
+        help=f"Format of the export file. Options are: {', '.join(kAvailableFormats)}. If not set, "
         "inferred from --export_to file extension",
         choices=kAvailableFormats,
         default=None,

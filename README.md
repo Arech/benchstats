@@ -1,4 +1,4 @@
-# Statistical testing for benchmark results comparison
+# Statistical Testing for Benchmark Results Comparison
 
 `benchstats` is a Python 3.10+ package that lets you compare two sets of benchmark results<sup>*</sup> using proper statistical tests and make a readable report on that. This lets remove guesswork and WAGs from interpretation of benchmarking results, and obtain a solid<sup>**</sup> answer to a question "is the algorithm implementation A is faster than the algorithm implementation B".
 
@@ -26,7 +26,7 @@ None of above is a good idea. But what is? Let's step back and think what do we 
 
 But how to do that? It's a well known problem in Mathematics and several solutions exists, such as [Mann–Whitney U test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test) and a newer more generic [Brunner Munzel Test](https://en.wikipedia.org/wiki/Brunner_Munzel_Test). `benchstats` is essentially a convenience wrapper around these tests with fully customizable inputs and results visualization/exporting, letting you get the answers effortlessly.
 
-## Examples of benchmark comparison
+## Examples of Benchmark Comparison
 
 *(I'll use a Google Benchmark-derived binary as a data source for the examples, but just reminding that any data source could be easily plugged-in and used instead. For conciseness, I'll shorten "Google Benchmark" to simply "GBench")*
 
@@ -116,6 +116,153 @@ Now we get a proper result:
 
 <img src="docs/imgs/simple4.svg" alt="Correct benchmark comparison when a single source file is used" width=700>
 
-## Custom data sources
+## Custom Data Sources
 
+While `benchstats` today support one Google Benchmark -produced `.json` files out of the box, it's intended to be able to run statistical tests for any data sources. If you know how to parse your custom file format, connect to a remote database, generate data on the fly, or obtain data any other way, you can easily let `benchstats` to run statistical tests on it by writing a custom parser.
+
+Any python class (a parser) named X, that:
+- inherits from `benchstats.common.ParserBase` class
+- can be instantiated with the following 4 parameters:
+    1. `source_id` - a string identifier, describing a data source within parser's controlled namespace. It's is obtained as the first or the second positional argument of `benchstats` module CLI.
+        - In the examples above, for the built-in `parser_GbenchJson` this is a source file name.
+    2. `filter` - a string identifier of a filter, used to restrict a set of benchmarks to load. Obtained as a value of `--filter1` or `--filter2` CLI flags.
+        - for the built-in `parser_GbenchJson` it's a string with regular expression to use for filtering benchmark names.
+    3. `metrics` - is a non-empty list or a tuple of string identifiers, corresponding to metrics to read for benchmarks. Obtained from third and subsequent CLI positional arguments.
+    4. `debug_log` - an instance of `benchstats.common.LoggingConsole` class that provides a
+    console logging interface to report errors if any <small>(built-in parsers should also support `None`
+    values and `bool` values and instantiate a `LoggingConsole` on its own, but support for this
+    isn't needed for a custom parser)</small>
+- has a `def getStats(self)` method returning a dictionary that maps strings describing benchmark names to dictionaries linking metric names with `np.ndarray()` of metric values.
+- is saved to a file `X.py`
+
+can be used as a custom data source for `benchstats` CLI. Just pass a path to the `X.py` as value of `--files_parser` argument (or `--file1_parser` or `--file2_parser` if you want to use different parsers for source1 and source2)
+
+### The simplest example of a custom data source
+
+Imagine you have a one-column CSV with data on which you want to run a statistical significance test. Save the following to `./myCSV.py`:
+
+```python
+import numpy as np
+from benchstats.common import ParserBase
+
+class myCSV(ParserBase):
+    def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
+        self.stats = np.loadtxt(fpath, dtype=np.float64)
+
+    def getStats(self) -> dict[str, dict[str, np.ndarray]]:
+        return {"bm": {"real_time": self.stats}}
+```
+
+There's always only one benchmark name `bm` hardcoded, and only one metric `real_time` that is read from CSV, but you get the idea. It's that simple.
+
+Now just run `benchstats` passing a path to the parser in `--files_parser` flag:
+
+```bash
+python -m benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py
+```
+
+If you make a parser that might be usable by other people, please consider adding it to the project's built-in parsers set by opening a thread with a suggestion in https://github.com/Arech/benchstats/issues or by making a PR into the repo.
+
+## Command Line Interface
+
+You can always get actual CLI help output by passing `--help` flag to the invocation of `benchstats`. Note that `--help` output has precedence over the description below.
+
+```
+usage: __main__.py [-h] [--show_debug | --no-show_debug]
+    [--files_parser <files parser class or path>]
+    [--file1_parser <file1 parser class or path>]
+    [--filter1 <reg expr>]
+    [--file2_parser <file2 parser class or path>]
+    [--filter2 <reg expr>]
+    [--from <reg expr>] [--to <replacement string>]
+    [--from1 <reg expr>] [--to1 <replacement string>]
+    [--from2 <reg expr>] [--to2 <replacement string>]
+    [--main_metrics <metric idx> [<metric idx> ...]]
+    [--method <method id>]
+    [--alpha <positive float less than 0.5>]
+    [--bonferroni]
+    [--always_show_pvalues]
+    [--sample_sizes | --no-sample_sizes]
+    [--sample_stats <stat ids> [<stat ids> ...]]
+    [--expect_same]
+    [--colors | --no-colors]
+    [--multiline | --no-multiline]
+    [--export_to <path/to/export_file>]
+    [--export_fmt <format id>]
+    [--export_light]
+    <path/to/file1> <path/to/file2> [metrics ...]
+```
+### Options
+- `-h, --help` show this help message and exit
+- `--show_debug, --no-show_debug` Shows some additional debugging info. Default: True
+
+#### Input data:
+Arguments describing how a source data sets are obtained and are optionally
+transformed.
+
+- `<path/to/file1>` Path to the first data file with benchmark results.
+                    See also `--file1_parser` and `--filter1` arguments.
+- `<path/to/file2>` Path to the second data file with benchmark results.
+                    See also `--file2_parser` and `--filter2` arguments
+- `--files_parser <files parser class or path>` Sets files parser class identifier, if a built-in parser is used (options are: `GbenchJson`). Or sets a path to `.py` file defining a custom parser, inherited from `benchstats.common.ParserBase` class. The parser class name must be the same as the file name.
+- `--file1_parser <file1 parser class or path>` Same as `--files_parser`, but only applies to `file1`.
+- `--filter1 <reg expr>` If specified, sets a Python regular expression to select benchmarks by name from `<file1>`
+- `--file2_parser <file2 parser class or path>` Same as --files_parser, but only applies to `file2`.
+- `--filter2 <reg expr>` Same as `--filter1`, but for `<file2>`
+- `--from <reg expr>` Arguments `--from` and `--to` works in a pair and are used to describe benchmark names transformation. `--from` sets a regular expression (Python re module flavor) to define a pattern to replace to `--to` replacement string. Typical use-cases include removing unnecessary parts of benchmark names (for example, Google Benchmark adds some suffixes that might not convey useful information) or "glueing" results of different benchmarks so they become comparable by the tool (for example, you have two benchmarks, the first is 'old_foo' with old algorithm implementation and the other is 'foo' with a new competing algorithm implementation, - to compare their performance against each other, you need to remove 'old_' prefix from the first benchmark with `--from old_` and apply `--filter1` and `--filter2` to restrict loading only corresponding data for old or new variations). Remember to escape characters that have special meaning for the shell.
+- `--to <replacement string>` See help for `--from`.
+- `--from1 <reg expr>`  Like `--from`, but for `<file1>` only.
+- `--to1 <replacement string>` Like `--to`, but for `<file1>` only
+- `--from2 <reg expr>`  Like `--from`, but for `<file2>` only
+- `--to2 <replacement string>` Like `--to`, but for `<file2>` only
+- `metrics`             List of metric identifiers to use in tests for each benchmark. Default: `real_time`. For deterministic algorithms highly recommend to measure and to use a minimum latency per repetition.
+- `--main_metrics <metric idx> [<metric idx> ...]` Indexes in `metrics` list specifying the main metrics. These are displayed differently and differences detected cause script to exit(1).
+Default: `0`.
+
+#### Statistical settings:
+
+- `--method <method id>`  Selects a method of statistical testing. Possible values are are: `brunnermunzel` for [Brunner Munzel test](https://en.wikipedia.org/wiki/Brunner_Munzel_Test) and `mannwhitneyu` for [Mann-Whitney U test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test). Default is `brunnermunzel`
+- `--alpha <positive float less than 0.5>` Set statistical significance level (a desired mistake probability level). Default `0.001`
+    - Note! This is an actual probability of a mistake only when all preconditions of the chosen statistical test are met. One of the most important preconditions like independence of individual measurements, or constancy of underlying distribution parameters are almost never met in a real-life benchmarking, even on a properly quiesced hardware. Real mistake rates are higher. 
+- `--bonferroni`          If set, applies a [Bonferroni multiple comparisons correction](https://en.wikipedia.org/wiki/Bonferroni_correction).
+
+#### Rendering:
+Controls how results are rendered
+
+- `--always_show_pvalues` If set, always show pvalues. By default it shows pvalues only for significant differences. Note that when two sets are compared stochastically
+same (`~`), or more precisely, not stochastically less and not stochastically greater (see [Stochastic ordering](https://en.wikipedia.org/wiki/Stochastic_ordering)),
+pvalue shown is a minimum of two pvalues for less and greater comparison.
+- `--sample_sizes, --no-sample_sizes` Controls whether to show sizes of datasets used in a test. Default `True`
+- `--sample_stats <stat ids> [<stat ids> ...]` Sets which additional statistics about compared samples sets to show. Could be any sequence of floats (must be in range `[0,100]`, designating a
+percentile value to calculate), or aliases `extremums`, `median`, `iqr` (interquartile range), `std` (standard deviation). Shortenings are accepted. Use of `std`, though isn't recommended as standard deviation doesn't really mean anything for most distributions beyond Normal.
+- `--expect_same` If set, assumes that distributions are the same (i.e. `H0` hypothesis is true) and shows some additional statistics useful for ensuring that a
+benchmark code is stable enough, or the machine is quiesced enough. One good example is when two different source `<file1>` and `<file2>` were made with exactly the same binary running on exactly the same machine in the same state - on a machine with a proper setup tests shouldn't find a difference.
+- `--colors, --no-colors` Controls if the output should be colored. Default: `True`
+- `--multiline, --no-multiline` Controls if benchmark results could span several lines. Default: `False`
+
+#### Export:
+Controls how to export results.
+
+- `--export_to <path/to/export_file>` Path to file to store comparison results to.
+- `--export_fmt <format id>` Format of the export file. Options are: `txt`, `svg`, `html`. If not set, inferred from `--export_to` file extension.
+- `--export_light` If set, uses light theme instead of dark
+
+## API overview
+
+The code is pretty trivial, so I'll post only a high-level overview: there are 3 major components interacting in `benchstats` when it runs in CLI mode:
+1. one or two source data parsers, depending on value of `--files_parser`, `file1_parser` or `file2_parser`.
+    - built-in parsers are stored in files starting with `parser_` prefix. What goes after the prefix is a parser identifier for CLI `--file?_parser` flag.
+    - all parsers obey requirements listed above in "Custom Data Sources" section.
+    - essentially a parser could be just a single function returning `dict[str, dict[str, np.ndarray]]` mapping from benchmark names to metric names to metric values. It's a class only for the simplicity of writing actual code and validating user-supplied parsers.
+2. a comparison method `compareStats()` from `benchstats.compare`. It:
+    - takes two dictionaries `dict[str, dict[str, np.ndarray]]` with source data plus some control arguments, run stat tests on all metric values of the dictionaries that have the same benchmark name (key of the outer-most dictionary) and a metric name (key of the inner-most dictionary), and then
+    - produces `benchstats.compare.CompareStatsResult` namedtuple object with comparison results for that benchmarks+metrics, common to both source data sets.
+3. a rendering method `renderComparisonResults()` from `benchstats.render`:
+    - takes `benchstats.compare.CompareStatsResult` namedtuple produced by `compareStats()`, plus various control parameters, and renders it according to the rules and styles.
+
+## Stability and Changelog
+
+The project uses semantic versioning scheme.
+
+Depending on a feedback the project or its individual components might get breaking changes, so prefer to use version pinning to prevent unexpected breakages. See [CHANGELOG.md](CHANGELOG.md) for details.
 

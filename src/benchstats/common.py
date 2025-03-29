@@ -12,7 +12,7 @@ kAvailableFormats = ("txt", "svg", "html")
 
 
 class ParserBase:
-    def __init__(self, source_id, filter, metrics, debug_log=True) -> None:
+    def __init__(self, source_id, filter, metrics, debug_log=None) -> None:
         """Expected source constructor.
         - source_id is an identifier of a data source that the class knows how to process and turn
             into inputs of compare::compareStats(). Data type is derived class implementation
@@ -23,7 +23,9 @@ class ParserBase:
             Typically, it's a string with a regular expression to match against a benchmark name.
         - metrics is a list of string representing metrics to extract for each benchmark repetition.
         - debug_log is a flag to enable/disable logging, or a logger object like LoggingConsole to
-            send logs to.
+            send logs to. When the parser is called by benchstats CLI handler, it's always an
+            instance of LoggingConsole, so support for other variants (None or bool) are needed only
+            for built-in parsers to alleviate use of the package components in a source code.
         """
         pass  # derived class knows what to do
 
