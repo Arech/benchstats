@@ -9,3 +9,4 @@ __pycache__
 !/docs/**/*.txt
 !/docs/**/*.html
 /build
+/dist

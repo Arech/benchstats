@@ -2,17 +2,16 @@
 requires      = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# https://realpython.com/pypi-publish-python-package/
-
 [project]
 name = "benchstats"
 version = "1.0.0"
 description = "Statistical Testing for Benchmark Results Comparison"
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
-# license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
 classifiers = [
-#    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
