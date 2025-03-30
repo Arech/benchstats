@@ -10,14 +10,11 @@ readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
-
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-
 keywords = ["benchmarks", "statistics", "reports", "analysis"]
-
 dependencies = [
     "rich",
     "numpy",
