@@ -59,7 +59,7 @@ benchmark_binary --benchmark_repetitions=10 \
 3. Let the `benchstats` analyze the results:
 
 ```bash
-python -m benchstats ./my_main.json ./my_feature.json real_time
+benchstats ./my_main.json ./my_feature.json real_time
 ```
 
 The first two positional arguments of `benchstats` module are just file paths and the third argument is a json field name that contain a metric value for comparison. (`real_time` is the default field/metric, so it doesn't even have to be specified, btw). GBench typically saves two metrics: `real_time` (shown as just `Time` in reports) which is an average time of one iteration, and a `cpu_time` (shown as `CPU` in reports) which is an average time CPU spent executing the user-mode code. GBench also supports custom timers, and you can use them here as well. Typically, custom timers have the same field name as the name that was given to a counter (in case of doubts, just peek into a `.json` file).
@@ -75,7 +75,7 @@ Here's what a data cell of the `real_time` column mean: there were 10 samples of
 To show how `benchstats` report could look like when a significant difference is found, I'll just rerun the same analysis with less restrictive significance level (and will use the opportunity to show effects of some above-mentioned flags)
 
 ```bash
-python -m benchstats ./my_main.json ./my_feature.json real_time cpu_time \
+benchstats ./my_main.json ./my_feature.json real_time cpu_time \
     --always_show_pvalues --alpha=0.03
 ```
 
@@ -84,7 +84,7 @@ python -m benchstats ./my_main.json ./my_feature.json real_time cpu_time \
 The main change is that now the test reports that according to `real_time` metric, the benchmark that generated `./my_main.json` run significantly slower than the benchmark that made `./my_feature.json`. Due to that the script has exited with exit code 1, letting one to detect that a human intervention might be needed. But what are these "main metrics" that the warning string refers to? Main metrics are such metrics, any difference in which makes the script to exit with error code 1. By default, a metric mentioned the first in the command line list of metrics is the main metric, but this could be changed with `--main_metrics` argument, which accepts a list of indices in the metrics list. Let's make `cpu_time` the main metric and see what would change:
 
 ```bash
-python -m benchstats ./my_main.json ./my_feature.json real_time cpu_time \
+benchstats ./my_main.json ./my_feature.json real_time cpu_time \
     --always_show_pvalues --alpha=0.03 --main_metrics 1
 ```
 
@@ -97,7 +97,7 @@ Now `cpu_time` is the main metric and the difference in it isn't significant. `r
 For example, we are optimizing a function and want to compare how a new implementation compares to the old. We've created an individual benchmark for both implementations and for convenience have placed them in the same binary. That implies the benchmark functions must have different names. Now, if we run the benchmark binary and obtain `./my.json` results file and then will follow the approach above blindly, we won't get what we need. `benchstats` compares a benchmark from the source 1 to a benchmark with the same name in the source 2, so we'll end up comparing old vs old in one row, and new vs new in the other, just like this:
 
 ```bash
-python -m benchstats ./my.json ./my.json real_time
+benchstats ./my.json ./my.json real_time
 ```
 <img src="https://github.com/Arech/benchstats/blob/main/docs/imgs/simple4_bad.svg?raw=true" alt="Wrong benchmark comparison" width=700>
 
@@ -113,7 +113,7 @@ This allows us to make a plan:
 3. For source 2 we'll rewrite benchmark names to remove the `Old` prefix
 
 ```bash
-python -m benchstats ./my.json ./my.json real_time \
+benchstats ./my.json ./my.json real_time \
     --filter1='^(?!.*?Old).*$' --filter2=Old \
     --from2='(?:Old)(.*?)' --to2=\\1
 ```
@@ -166,7 +166,7 @@ There's always only one benchmark name `bm` hardcoded, and only one metric `real
 Now just run `benchstats` passing a path to the parser in `--files_parser` flag:
 
 ```bash
-python -m benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py
+benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py
 ```
 
 If you make a parser that might be usable by other people, please consider adding it to the project's built-in parsers set by opening a thread with a suggestion in https://github.com/Arech/benchstats/issues or by making a PR into the repo.
