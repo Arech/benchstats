@@ -55,7 +55,7 @@ def detectExportFormat(export_to, export_fmt):
 
 class LoggingConsole(rich.console.Console):
 
-    @enum.verify(enum.CONTINUOUS)
+    # @enum.verify(enum.CONTINUOUS)  # not supported by Py 3.10
     class LogLevel(enum.IntEnum):
         Debug = (0,)
         Info = (1,)
