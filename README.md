@@ -26,6 +26,14 @@ None of above is a good idea. But what is? Let's step back and think what do we 
 
 But how to do that? It's a well known problem in Mathematics and several solutions exists, such as [Mann–Whitney U test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test) and a newer more generic [Brunner Munzel Test](https://en.wikipedia.org/wiki/Brunner_Munzel_Test). `benchstats` is essentially a convenience wrapper around these tests with fully customizable inputs and results visualization/exporting, letting you get the answers effortlessly.
 
+## Installation
+
+```bash
+pip install benchstats
+```
+
+For command line use see section "Examples" and "Command Line Interface Reference" below. For API overview see a corresponding section below.
+
 ## Examples of Benchmark Comparison
 
 *(I'll use a Google Benchmark-derived binary as a data source for the examples, but just reminding that any data source could be easily plugged-in and used instead. For conciseness, I'll shorten "Google Benchmark" to simply "GBench")*
@@ -58,7 +66,7 @@ The first two positional arguments of `benchstats` module are just file paths an
 
 If the `benchmark_binary` had only a single benchmark, the result of the command could look something like this:
 
-<img src="docs/imgs/simple1.svg" alt="Sample benchmark comparison results for a single benchmark" width=600>
+<img src="https://github.com/Arech/benchstats/blob/main/docs/imgs/simple1.svg?raw=true" alt="Sample benchmark comparison results for a single benchmark" width=600>
 
 `benchstats` present results as a table: the first column correspond to a benchmark name and all other columns shows results of applying a statistical test to a corresponding metric (yes, you can supply many metrics at once and all of them will be analyzed. Try to append `cpu_time` to the command line above).
 
@@ -71,7 +79,7 @@ python -m benchstats ./my_main.json ./my_feature.json real_time cpu_time \
     --always_show_pvalues --alpha=0.03
 ```
 
-![Benchmark comparison results when a difference is detected](docs/imgs/simple2.svg)
+![Benchmark comparison results when a difference is detected](https://github.com/Arech/benchstats/blob/main/docs/imgs/simple2.svg?raw=true)
 
 The main change is that now the test reports that according to `real_time` metric, the benchmark that generated `./my_main.json` run significantly slower than the benchmark that made `./my_feature.json`. Due to that the script has exited with exit code 1, letting one to detect that a human intervention might be needed. But what are these "main metrics" that the warning string refers to? Main metrics are such metrics, any difference in which makes the script to exit with error code 1. By default, a metric mentioned the first in the command line list of metrics is the main metric, but this could be changed with `--main_metrics` argument, which accepts a list of indices in the metrics list. Let's make `cpu_time` the main metric and see what would change:
 
@@ -80,7 +88,7 @@ python -m benchstats ./my_main.json ./my_feature.json real_time cpu_time \
     --always_show_pvalues --alpha=0.03 --main_metrics 1
 ```
 
-![Benchmark comparison results when a difference in non-main metric is detected](docs/imgs/simple3.svg)
+![Benchmark comparison results when a difference in non-main metric is detected](https://github.com/Arech/benchstats/blob/main/docs/imgs/simple3.svg?raw=true)
 
 Now `cpu_time` is the main metric and the difference in it isn't significant. `real_time` now is a secondary metric, which is only reported, but doesn't influence the script exit code.
 
@@ -91,7 +99,7 @@ For example, we are optimizing a function and want to compare how a new implemen
 ```bash
 python -m benchstats ./my.json ./my.json real_time
 ```
-<img src="docs/imgs/simple4_bad.svg" alt="Wrong benchmark comparison" width=700>
+<img src="https://github.com/Arech/benchstats/blob/main/docs/imgs/simple4_bad.svg?raw=true" alt="Wrong benchmark comparison" width=700>
 
 To solve that, `benchstats` has two features based on the Python standard [regular expression](https://docs.python.org/3.10/library/re.html#regular-expression-syntax) engine:
 
@@ -114,7 +122,7 @@ Note the single `'` quotes around `--filter1` and `--from2` regexps. They contai
 
 Now we get a proper result:
 
-<img src="docs/imgs/simple4.svg" alt="Correct benchmark comparison when a single source file is used" width=700>
+<img src="https://github.com/Arech/benchstats/blob/main/docs/imgs/simple4.svg?raw=true" alt="Correct benchmark comparison when a single source file is used" width=700>
 
 ## Custom Data Sources
 
@@ -163,7 +171,7 @@ python -m benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py
 
 If you make a parser that might be usable by other people, please consider adding it to the project's built-in parsers set by opening a thread with a suggestion in https://github.com/Arech/benchstats/issues or by making a PR into the repo.
 
-## Command Line Interface
+## Command Line Interface Reference
 
 You can always get actual CLI help output by passing `--help` flag to the invocation of `benchstats`. Note that `--help` output has precedence over the description below.
 
@@ -264,5 +272,5 @@ The code is pretty trivial, so I'll post only a high-level overview: there are 3
 
 The project uses semantic versioning scheme.
 
-Depending on a feedback the project or its individual components might get breaking changes, so prefer to use version pinning to prevent unexpected breakages. See [CHANGELOG.md](CHANGELOG.md) for details.
+Depending on a feedback the project or its individual components might get breaking changes, so prefer to use version pinning to prevent unexpected breakages. See [CHANGELOG.md](https://github.com/Arech/benchstats/blob/main/CHANGELOG.md) for details.
 
