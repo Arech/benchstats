@@ -70,7 +70,7 @@ If the `benchmark_binary` had only a single benchmark, the result of the command
 
 `benchstats` present results as a table: the first column correspond to a benchmark name and all other columns shows results of applying a statistical test to a corresponding metric (yes, you can supply many metrics at once and all of them will be analyzed. Try to append `cpu_time` to the command line above).
 
-Here's what a data cell of the `real_time` column mean: there were 10 samples of an alternative A (from the first positional argument - `my_main.json`) and 10 samples of an alternative B (from the second positional argument `my_feature.json`), - hence this `(10 vs 10)` text in the end. Mean value (hence `(means)` in the column title) for alternative A over its 10 samples was 516.5 microseconds, while mean for B was 502.8 microseconds. The test was using significance level 0.001 (hence the string `alpha=0.00100` in the table title) and on that level test declared that both sets aren't different from each other (hence symbol `~` between the mean values). Actual [p-value](https://en.wikipedia.org/wiki/P-value) for tests that didn't find a difference is not shown by default, only blank space is allocated to report it (so no text shift happens when some benchmark has differences and others don't) but you can pass `--always_show_pvalues` flag to show it.
+Here's what a data cell of the `real_time` column mean: there were 10 samples of an alternative A (from the first positional argument - `my_main.json`) and 10 samples of an alternative B (from the second positional argument `my_feature.json`), - hence this `(10 vs 10)` text in the end. Mean value (hence `(means)` in the column title) for alternative A over its 10 samples was 516.5 microseconds, while mean for B was 502.8 microseconds. The test was using significance level 0.001 (hence the string `alpha=0.00100` in the table title) and on that level test declared that both sets aren't different from each other (hence symbol `~` between the mean values). Actual [p-value](https://en.wikipedia.org/wiki/P-value) for tests that didn't find a difference is not shown by default, only blank space is allocated to report it (so no text shift happens when some benchmark has differences and others don't) but you can pass `--always_show_pval` flag to show it.
 
 To show how `benchstats` report could look like when a significant difference is found, I'll just rerun the same analysis with less restrictive significance level (and will use the opportunity to show effects of some above-mentioned flags)
 
@@ -238,9 +238,9 @@ Default: `0`.
 #### Rendering:
 Controls how results are rendered
 
-- `--always_show_pvalues` If set, always show pvalues. By default it shows pvalues only for significant differences. Note that when two sets are compared stochastically
+- `--always_show_pvalues` If set, always show p-values. By default it shows p-values only for significant differences. Note that when two sets are compared stochastically
 same (`~`), or more precisely, not stochastically less and not stochastically greater (see [Stochastic ordering](https://en.wikipedia.org/wiki/Stochastic_ordering)),
-pvalue shown is a minimum of two pvalues for less and greater comparison.
+p-value shown is a minimum of two p-values for less and greater comparison.
 - `--sample_sizes, --no-sample_sizes` Controls whether to show sizes of datasets used in a test. Default `True`
 - `--sample_stats <stat ids> [<stat ids> ...]` Sets which additional statistics about compared samples sets to show. Could be any sequence of floats (must be in range `[0,100]`, designating a percentile value to calculate), or aliases `extremums`, `median`, `iqr` (interquartile range), `std` (standard deviation). Shortenings are accepted. Use of `std`, though isn't recommended as standard deviation doesn't really mean anything for most distributions beyond Normal.
 - `--metric_precision <int>=3>` Total number of digits in a metric value reported. Minimum is 3. Default is 4.
@@ -275,3 +275,18 @@ The project uses semantic versioning scheme.
 
 Depending on a feedback the project or its individual components might get breaking changes, so prefer to use version pinning to prevent unexpected breakages. See [CHANGELOG.md](https://github.com/Arech/benchstats/blob/main/CHANGELOG.md) for details.
 
+## FAQ
+
+### Isn't default value for alpha/p-value = 0.001 too small? I heard people generally use 0.05.
+
+There are several things to unpack here.
+
+First, just to remind, `--alpha` CLI argument sets any value one wants.
+
+Second, p-value=0.05 is just a [1 mistake per 20 tests](https://xkcd.com/882/). This isn't a lot even for a single test, but in the process of optimizing the code you might want to run a benchmark dozens of times. 20 runs isn't much, but it's almost certain that with a default alpha/p-value=0.05 you'll get at least one false positive (i.e. the test will erroneously detect a change). Also it's a common practice to have dozens benchmarks in a single binary. That means dozens tests will happen in parallel and also just due to a bad luck one of them almost certainly will produce a false positive. `--bonferroni` flag could help in this case though, but it won't help against many re-runs. So just because of these practical considerations it makes sense to use smaller p-values. 
+
+But there also exist a much bigger fundamental reason to use smaller p-value/alpha. The problem is - p-value is really a probability of mistake if and only if all preconditions of the statistical test are fulfilled. One of such requirements in case of Brunner Munzel and Mann-Whitney U tests is almost always about different measurements being independent one from the other. The problem is - in case of benchmarking this requirements is (almost?) always broken, because most of the times we aren't using fully properly quiesced machines. Instead, there's almost always a ton of sh*t happening in the background interrupting a benchmark here and there, corrupting CPU caches, and so on, in a totally unpredictable, but systematic manner. This brings subtle hidden dependencies into measurements benchmarks take, and that breaks the important precondition of a statistical test. The result is, - if you run the same benchmark two times, it's quite probable (unless you've invested a notable conscious effort in quiescing the machine), that the test will detect differences (while in reality it was always the same code). This is especially acute on Windows, btw, though Linux could be prone too.
+
+So using `0.001` is a good and safe enough compromise to accommodate the fact that real false positive rate is much higher than the p-value used for the statistical test.
+
+And by the way, don't worry much that lowering p-value makes the test less sensitive. It's already sensitive enough to detect differences in latencies that are much smaller than a clock granularity due to use of all data samples, especially when benchmarks repetition number is high.
