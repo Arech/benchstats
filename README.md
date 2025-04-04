@@ -192,6 +192,7 @@ usage: __main__.py [-h] [--show_debug | --no-show_debug]
     [--always_show_pvalues]
     [--sample_sizes | --no-sample_sizes]
     [--sample_stats <stat ids> [<stat ids> ...]]
+    [--metric_precision <int>=3>]
     [--expect_same]
     [--colors | --no-colors]
     [--multiline | --no-multiline]
@@ -241,8 +242,8 @@ Controls how results are rendered
 same (`~`), or more precisely, not stochastically less and not stochastically greater (see [Stochastic ordering](https://en.wikipedia.org/wiki/Stochastic_ordering)),
 pvalue shown is a minimum of two pvalues for less and greater comparison.
 - `--sample_sizes, --no-sample_sizes` Controls whether to show sizes of datasets used in a test. Default `True`
-- `--sample_stats <stat ids> [<stat ids> ...]` Sets which additional statistics about compared samples sets to show. Could be any sequence of floats (must be in range `[0,100]`, designating a
-percentile value to calculate), or aliases `extremums`, `median`, `iqr` (interquartile range), `std` (standard deviation). Shortenings are accepted. Use of `std`, though isn't recommended as standard deviation doesn't really mean anything for most distributions beyond Normal.
+- `--sample_stats <stat ids> [<stat ids> ...]` Sets which additional statistics about compared samples sets to show. Could be any sequence of floats (must be in range `[0,100]`, designating a percentile value to calculate), or aliases `extremums`, `median`, `iqr` (interquartile range), `std` (standard deviation). Shortenings are accepted. Use of `std`, though isn't recommended as standard deviation doesn't really mean anything for most distributions beyond Normal.
+- `--metric_precision <int>=3>` Total number of digits in a metric value reported. Minimum is 3. Default is 4.
 - `--expect_same` If set, assumes that distributions are the same (i.e. `H0` hypothesis is true) and shows some additional statistics useful for ensuring that a
 benchmark code is stable enough, or the machine is quiesced enough. One good example is when two different source `<file1>` and `<file2>` were made with exactly the same binary running on exactly the same machine in the same state - on a machine with a proper setup tests shouldn't find a difference.
 - `--colors, --no-colors` Controls if the output should be colored. Default: `True`

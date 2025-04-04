@@ -87,6 +87,7 @@ def main():
         show_sample_sizes=args.sample_sizes,
         always_show_pvalues=args.always_show_pvalues,
         multiline=args.multiline,
+        metric_precision=args.metric_precision,
     )
 
     if cr.at_least_one_differs:

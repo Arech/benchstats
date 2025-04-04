@@ -19,7 +19,6 @@ kDefaultStyles = {
     "benchmark_name_same": None,
     "benchmark_name_diff_main": "#FF6060",
     "benchmark_name_diff_secondary": "#C0B040",
-    "metric_precision": 1,
     "pval_format": ".5f",  # no point in e notation
     "pval_format_generic": ".1e",  # used iif pval_format isn't enough to print alpha & pvals.
     "default_metric_unit": "s",
@@ -136,6 +135,7 @@ def renderComparisonResults(
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
     always_show_pvalues: bool = False,
     multiline: bool = True,  # per metric report uses several lines
+    metric_precision: int = 4,  # total digits in metric reported value. Min 3
 ) -> None:
     if console is None:
         console = LoggingConsole(emoji=False, highlight=False)
@@ -196,7 +196,9 @@ def renderComparisonResults(
     iter_metrics = [*main_metrics, *scnd_metrics]
 
     metric_unit_keys = [f"metric_{m}_unit" for m in iter_metrics]
-    metric_prec = _getFmt("metric_precision")
+
+    assert isinstance(metric_precision, int)
+    metric_precision = max(3, metric_precision) - 3
 
     # vars for h0==true assumption
     fp_less_metrics = {}  # number of false positives in less comparison per metric
@@ -208,8 +210,17 @@ def renderComparisonResults(
     theme_style = "dark" if dark_theme else "light"
     row_styles_fld = f"row_styles_{theme_style}"
     _def_justify = "left"  # unfortunately, applies to all rows, instead of only captions
+    # Also very unfortunately, there seems to be no way of controlling text overflows in rich tables
+    # (what our --multiline option were meant to do). If there's more text in a row that the width
+    # of the terminal, columns without no_wrap=True will be unconditionally wrapped. But if all
+    # columns have no_wrap=True, text will be unconditionally cropped. So we have to have just one
+    # most important column (benchmark name) with no_wrap=True and all the rest will be wrapped if
+    # a row length is too large. What we need is a table expansion if rows are too lengthy, but
+    # that doesn't seem to work (I remember vaguely it worked with some combination of settings a
+    # while ago, but I'm not even sure it was due to settings, or due to a rich version change, or
+    # due to potentially different terminal behavior).
     table = rich.table.Table(
-        rich.table.Column("Benchmark", justify=_def_justify),
+        rich.table.Column("Benchmark", justify=_def_justify, no_wrap=True),
         *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(main_metrics)],
         *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(scnd_metrics)],
         title=title,
@@ -248,22 +259,24 @@ def renderComparisonResults(
                 np.mean(res.val_set2) if isinstance(res.val_set2, np.ndarray) else res.val_set2
             )
             txt = Text(
-                f"{makeReadable(repr_value1, metric_prec)}{unit} {res.result}",
+                f"{makeReadable(repr_value1, metric_precision)}{unit} {res.result}",
                 style=comp_res_style,
             )
             if is_diff:
                 txt.stylize(_getFmt("diff_result_sign"), -1)
-            txt.append(f" {makeReadable(repr_value2, metric_prec)}{unit}", style=comp_res_style)
+            txt.append(
+                f" {makeReadable(repr_value2, metric_precision)}{unit}", style=comp_res_style
+            )
 
             if sample_stats is not None:
                 assert isinstance(res.val_set1, np.ndarray), "Need raw dataset to show sample_stats"
                 if show_sample_stats_perc:
-                    perc1 = f"[{','.join([makeReadable(pv,metric_prec) for pv in np.percentile(res.val_set1, sample_stats['percentiles'])])}]"
-                    perc2 = f"[{','.join([makeReadable(pv,metric_prec) for pv in np.percentile(res.val_set2, sample_stats['percentiles'])])}]"
+                    perc1 = f"[{','.join([makeReadable(pv,metric_precision) for pv in np.percentile(res.val_set1, sample_stats['percentiles'])])}]"
+                    perc2 = f"[{','.join([makeReadable(pv,metric_precision) for pv in np.percentile(res.val_set2, sample_stats['percentiles'])])}]"
 
                 if show_sample_stats_std:
-                    std1 = f"{std_sep}{makeReadable(np.std(res.val_set1,ddof=1),metric_prec)}"
-                    std2 = f"{std_sep}{makeReadable(np.std(res.val_set2,ddof=1),metric_prec)}"
+                    std1 = f"{std_sep}{makeReadable(np.std(res.val_set1,ddof=1),metric_precision)}"
+                    std2 = f"{std_sep}{makeReadable(np.std(res.val_set2,ddof=1),metric_precision)}"
 
                 txt.append(
                     f"{delim_space}{perc1}{std1} {res.result}{stats_set_delim}{perc2}{std2}",
