@@ -101,7 +101,7 @@ def compareStats(
     main_metrics: None | list[str] | tuple[str] = None,
     debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
-    scipy_bug_workaround: None | bool = None,
+    brunnermunzel_workaround: None | bool = None,
 ) -> CompareStatsResult:
     """Perform comparison for statistical significance between two groups of sets of statistics
     using specific statistical method.
@@ -117,22 +117,29 @@ def compareStats(
     `store_sets` is a bool, True will make store whole corresponding dataset into a BmCompResult
     instead of a mean of the set.
 
-    `scipy_bug_workaround`: scipy.stats.brunnermunzel() method at least in versions 1.10-1.15.2 has
-    what I consider to be a bug (https://github.com/scipy/scipy/issues/22664) that causes warnings
-    and nans in results to appear for nonintersecting data sets (i.e. when all elements of one set
-    is strictly less or greater than all elements of the other set) or exactly equal sets.
-    scipy.stats.mannwhitneyu() on the contrary behaves absolutely correctly.
-    scipy_bug_workaround is a flag to handle the bug: value of None handles the bug only for
-    method == 'brunnermunzel', a bool otherwise controls whether to handle the bug irrespective of
-    the method used (this might give different pvalues for other tests, but this shouldn't affect
-    inference results unless alpha threshold value is too wild)
+    `brunnermunzel_workaround`: Formally speaking, Brunner Munzel test method is "underspecified"
+    in a sense that by design it doesn't handle a case of non-intersecting sample sets, or sets
+    consisting of the same single element (https://aakinshin.net/posts/brunner-munzel-corner-case/).
+    scipy.stats.brunnermunzel() implementation at least in versions 1.10-1.15.2 directly follows the
+    words of the original paper and doesn't introduce handling for that cases, which causes warnings
+    and nans to appear in results. IMO from an engineering point of view this is more like just a
+    bug (https://github.com/scipy/scipy/issues/22664). `brunnermunzel_workaround` is a flag to
+    handle it: value of None handles the bug only for method == 'brunnermunzel', a bool otherwise
+    controls whether to handle the bug irrespective of the method used (this might give different
+    pvalues for other tests, but this shouldn't affect inference results unless alpha threshold
+    value is too wild). It should be noted that for small sample sizes (under 10 elements in any of
+    sample sets) this most certainly leads to a wrong p-value result that underestimate a
+    probability of error. However, with 10, or preferably more, sample set sizes, this should be
+    negligible.
+    While brunnermunzel_workaround allows to disable the workaround, I doubt it has any practical
+    value in the context of benchmark results comparison.
 
     Returns an instance of CompareStatsResult class
     """
     assert isinstance(sg1, dict) and isinstance(sg2, dict)
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
-    assert scipy_bug_workaround is None or isinstance(scipy_bug_workaround, bool)
+    assert brunnermunzel_workaround is None or isinstance(brunnermunzel_workaround, bool)
     assert main_metrics is None or isinstance(main_metrics, (list, tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
@@ -143,8 +150,8 @@ def compareStats(
         logger = debug_log
         debug_log = True
 
-    if scipy_bug_workaround is None:
-        scipy_bug_workaround = method == "brunnermunzel"
+    if brunnermunzel_workaround is None:
+        brunnermunzel_workaround = method == "brunnermunzel"
 
     def warn(*args, **kwargs):
         if debug_log:
@@ -152,8 +159,8 @@ def compareStats(
 
     """if debug_log:
         logger.debug(
-            "Comparing datasets with %s and alpha=%.6f, use_scipy_bug_workaround=%s"
-            % (kMethods[method]["name"], alpha, scipy_bug_workaround)
+            "Comparing datasets with %s and alpha=%.6f, brunnermunzel_workaround=%s"
+            % (kMethods[method]["name"], alpha, brunnermunzel_workaround)
         )"""
 
     common_bms = sg1.keys() & sg2.keys()
@@ -171,8 +178,8 @@ def compareStats(
 
     def computePValues(s1, s2):
         """Computes and return pvalues of s1 being stochastically less or greater than s2"""
-        if scipy_bug_workaround:
-            # testing for known (!!!) cases that brunnermunzel can't handle properly
+        if brunnermunzel_workaround:
+            # test for edge cases that brunnermunzel can't handle properly
             mn1, mx1, mn2, mx2 = np.min(s1), np.max(s1), np.min(s2), np.max(s2)
             assert np.all(np.isfinite([mn1, mx1, mn2, mx2]))  # sanity check, more asserts below
             all_eq = np.all([mn1 == mx1, mn1 == mn2, mn1 == mx2])
@@ -189,7 +196,7 @@ def compareStats(
         res_greater = stat_func(s1, s2, alternative="greater")
 
         less_pvalue, greater_pvalue = res_less.pvalue, res_greater.pvalue
-        if scipy_bug_workaround:
+        if brunnermunzel_workaround:
             assert np.all(np.isfinite([less_pvalue, greater_pvalue]))
 
         return less_pvalue, greater_pvalue
