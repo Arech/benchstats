@@ -2,6 +2,8 @@ from collections.abc import Iterable
 from collections import namedtuple
 import numpy as np
 import scipy.stats
+import itertools
+
 from .common import LoggingConsole
 
 
@@ -24,23 +26,24 @@ kMinReliableStatsSize = 9
 
 kAllowedFpTypes = (float, np.floating)
 
+
 class BmCompResult(
-    namedtuple("BmCompResult", ["result", "pvalue", "val_set1", "val_set2", "size1", "size2"])
+    namedtuple("BmCompResult", ["result", "pvalue", "val_set0", "val_set1", "size1", "size2"])
 ):
     __slots__ = ()
 
-    def __new__(cls, res: str, pval: float, v1: float, v2: float, siz1: int, siz2: int):
+    def __new__(cls, res: str, pval: float, v0: float, v1: float, siz0: int, siz1: int):
         """Constructor to verify initialization correctness
 
         - res/result is a comparison result:
             < when set1 is stochastically less than set2,
             > when set1 is stochastically greater than set2,
             ~ when set1 is not stochastically less or greater than set2
-        
+
         - pval/pvalue is a pvalue associated with less or greater comparison result, or a minimum of
             pvalues for less/greater comparison
-        
-        - v1/val_set1 and v2/val_set2 are either representative values (mean) of a corresponding
+
+        - v0/val_set0 and v1/val_set1 are either representative values (mean) of a corresponding
             set, or the whole set iself, depending on `store_sets` flag value of compareStats()
 
         siz1/size1 and siz2/size2 are sizes of respective metric value sets
@@ -48,31 +51,33 @@ class BmCompResult(
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
         assert isinstance(pval, kAllowedFpTypes)
-        assert (isinstance(v1, kAllowedFpTypes) and isinstance(v2, kAllowedFpTypes)) or (
-            isinstance(v1, np.ndarray) and isinstance(v2, np.ndarray)
+        assert (isinstance(v0, kAllowedFpTypes) and isinstance(v1, kAllowedFpTypes)) or (
+            isinstance(v0, np.ndarray) and isinstance(v1, np.ndarray)
         )
         assert isinstance(res, str) and res in ("<", ">", "~")
-        assert isinstance(siz1, int) and isinstance(siz2, int)
-        if isinstance(v1, np.ndarray):
-            assert siz1 == len(v1) and siz2 == len(v2)
+        assert isinstance(siz0, int) and isinstance(siz1, int)
+        if isinstance(v0, np.ndarray):
+            assert siz0 == len(v0) and siz1 == len(v1)
         return super().__new__(
             cls,
             res,
             float(pval),
+            v0 if isinstance(v0, np.ndarray) else float(v0),
             v1 if isinstance(v1, np.ndarray) else float(v1),
-            v2 if isinstance(v2, np.ndarray) else float(v2),
+            siz0,
             siz1,
-            siz2,
         )
 
 
-class CompareStatsResult(namedtuple('CompareStatsResult',['results', 'method', 'alpha', 'at_least_one_differs'])):
+class CompareStatsResult(
+    namedtuple("CompareStatsResult", ["results", "method", "alpha", "at_least_one_differs"])
+):
     __slots__ = ()
 
     def __new__(cls, res: dict[str, dict[str, BmCompResult]], met: str, al: float, one_dif: bool):
         """Constructor to verify initialization correctness.
         - res/results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys
-            (benchmark_name's ) are common between the data sources sg1 and sg2
+            (benchmark_name's ) are common between the data sources sg0 and sg1
         """
         assert isinstance(res, dict) and isinstance(met, str) and len(met) > 0
         assert isinstance(al, kAllowedFpTypes) and isinstance(one_dif, (bool, np.bool_))
@@ -93,9 +98,72 @@ class CompareStatsResult(namedtuple('CompareStatsResult',['results', 'method', '
         return all(["~" == bm_res[m].result for bm_res in self.results.values() for m in metrics])
 
 
+def poolBenchmarks(
+    alt_delimiter: str,
+    sg0: dict[str, dict[str, Iterable[float]]],
+    sg1: dict[str, dict[str, Iterable[float]]] | None,
+    logger: LoggingConsole | None = None,
+) -> dict[str, dict[str, dict[str, Iterable[float]]]]:
+    """Using the specified delimiter dividing the benchmark name into a common part and an
+    alternative name part, merges the benchmarks from one or two sets of benchmarks into a single
+    pool represented by a dictionary where a key specifies common part of benchmark name and a value
+    is a dict mapping from alternative name to a dictionary of metric names and their values.
+
+    If a benchmark name doesn't contain the delimiter, then its common name is assumed to be a whole
+    benchmark name, and its alternative name is assumed to either "0" or "1" depending on the
+    benchmark set (sg0 or sg1) it belongs to.
+    """
+    assert isinstance(alt_delimiter, str) and len(alt_delimiter) > 0
+    assert isinstance(sg0, dict) and (isinstance(sg1, dict) or sg1 is None)
+
+    def warn(*args, **kwargs):
+        if logger is not None:
+            logger.warning(args[0] % args[1:], **kwargs)
+
+    def splitName(bm_name: str, pfx: str) -> tuple[str, str]:
+        """Splits the benchmark name into a common part and an alternative part"""
+        assert isinstance(bm_name, str)
+        s = bm_name.split(sep=alt_delimiter, maxsplit=1)
+        if len(s) > 1:
+            alt_name = s[1].strip()
+            return s[0].strip(), pfx + (
+                ((alt_delimiter if pfx != "" else "") + alt_name) if len(alt_name) > 0 else ""
+            )
+        else:
+            return bm_name, pfx
+
+    def _do_pool(
+        pool: dict[str, dict[str, dict[str, Iterable[float]]]],
+        sg: dict[str, dict[str, Iterable[float]]],
+        pfx: str,
+    ):
+        """Merges the benchmarks from one set of benchmarks into a pool"""
+        for bm_name, metrics in sg.items():
+            common_name, alt_name = splitName(bm_name, pfx)
+            cmn_bm = pool.setdefault(common_name, {})
+            if alt_name in cmn_bm:
+                warn(
+                    "Benchmark '%s%s' already exists in the pool. Skipping it.",
+                    common_name,
+                    alt_name,
+                )
+                continue
+            cmn_bm[alt_name] = metrics
+
+    pool = {}
+    if sg1 is None:
+        _do_pool(pool, sg0, "")
+    else:
+        _do_pool(pool, sg0, "0")
+        _do_pool(pool, sg1, "1")
+
+    return pool
+
+
 def compareStats(
-    sg1: dict[str, dict[str, Iterable[float]]],
-    sg2: dict[str, dict[str, Iterable[float]]],
+    sg0: dict[str, dict[str, Iterable[float]]],
+    sg1: dict[str, dict[str, Iterable[float]]] | None,
+    alt_delimiter: str | None = None,
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
     main_metrics: None | list[str] | tuple[str] = None,
@@ -103,11 +171,27 @@ def compareStats(
     store_sets: bool = False,
     brunnermunzel_workaround: None | bool = None,
 ) -> CompareStatsResult:
-    """Perform comparison for statistical significance between two groups of sets of statistics
-    using specific statistical method.
+    """Perform comparison for statistical significance of benchmark results using a chosen
+    statistical method.
 
-    Each group is represented by a dictionary where key specifies a benchmark name and value
-    is another dictionary metric_name->iterable_of_metric_values.
+    Individual benchmark results (variables sg0 and sg1) are represented by a dictionary where a key
+    specifies benchmark name and a value is another dictionary containing mapping from a metric name
+    to an iterable of values of the metric.
+
+    There are two ways to specify benchmark alternatives to compare against each other:
+
+    1. Specify two different sets of benchmark results (sg0 and sg1). In that case benchmark names
+    from group sg0 are directly matched to benchmark names from group sg1.
+
+    2. Specify one or two sets of benchmark results with a benchmark alternative delimiter
+    (alt_delimiter). The delimiter is used to split benchmark names into two parts: the first
+    part is the common name of the benchmark, and the second part is the alternative name. All
+    benchmark results with the same common name are compared against each other. For example, if
+    alt_delimiter is "|", then benchmark names "foo|bar" and "foo|baz" found in sg0 will be
+    compared against each other as "foo|bar vs baz", even if common name "foo" is not present in
+    sg1, or sg1 is None. If sg1 also has, for example, "foo|qux" benchmark, then there'll be 3
+    comparisons: "foo|0bar vs 0baz", "foo|0bar vs 1qux" and "foo|0baz vs 1qux". Numbers 0 and 1 in
+    benchmark alternative names references source set of benchmark results (sg0 or sg1).
 
     `main_metrics` is either a list/tuple of strings describing containing main metrics for the
     purpose of computing of at_least_one_differs flag, or None (then all metrics are main)
@@ -136,7 +220,10 @@ def compareStats(
 
     Returns an instance of CompareStatsResult class
     """
-    assert isinstance(sg1, dict) and isinstance(sg2, dict)
+    assert alt_delimiter is None or (isinstance(alt_delimiter, str) and len(alt_delimiter) > 0)
+    with_alternatives = alt_delimiter is not None
+
+    assert isinstance(sg0, dict) and (isinstance(sg1, dict) or (with_alternatives and sg1 is None))
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
     assert brunnermunzel_workaround is None or isinstance(brunnermunzel_workaround, bool)
@@ -157,33 +244,18 @@ def compareStats(
         if debug_log:
             logger.warning(args[0] % args[1:], **kwargs)
 
-    """if debug_log:
-        logger.debug(
-            "Comparing datasets with %s and alpha=%.6f, brunnermunzel_workaround=%s"
-            % (kMethods[method]["name"], alpha, brunnermunzel_workaround)
-        )"""
-
-    common_bms = sg1.keys() & sg2.keys()
-    if len(common_bms) != len(sg1) or len(common_bms) != len(sg2):
-        warn(
-            "Datasets contain different keys/benchmarks. Keys not found in both datasets will be ignored."
-        )
-        if debug_log:
-            logger.debug("Benchmarks in set1:", ", ".join(sg1.keys()))
-            logger.debug("Benchmarks in set2:", ", ".join(sg2.keys()))
-
     valid_metric_set_type = (list, tuple, np.ndarray)
     at_least_one_differs = False
     stat_func = getattr(scipy.stats, method)
 
-    def computePValues(s1, s2):
-        """Computes and return pvalues of s1 being stochastically less or greater than s2"""
+    def computePValues(s0, s1):
+        """Computes and return pvalues of s0 being stochastically less or greater than s1"""
         if brunnermunzel_workaround:
             # test for edge cases that brunnermunzel can't handle properly
-            mn1, mx1, mn2, mx2 = np.min(s1), np.max(s1), np.min(s2), np.max(s2)
-            assert np.all(np.isfinite([mn1, mx1, mn2, mx2]))  # sanity check, more asserts below
-            all_eq = np.all([mn1 == mx1, mn1 == mn2, mn1 == mx2])
-            all_less, all_greater = mx1 < mn2, mn1 > mx2
+            mn0, mx0, mn1, mx1 = np.min(s0), np.max(s0), np.min(s1), np.max(s1)
+            assert np.all(np.isfinite([mn0, mx0, mn1, mx1]))  # sanity check, more asserts below
+            all_eq = np.all([mn0 == mx0, mn0 == mn1, mn0 == mx1])
+            all_less, all_greater = mx0 < mn1, mn0 > mx1
 
             if all_eq:
                 return 1.0, 1.0
@@ -192,8 +264,8 @@ def compareStats(
             elif all_greater:
                 return 1.0, 0.0
 
-        res_less = stat_func(s1, s2, alternative="less")
-        res_greater = stat_func(s1, s2, alternative="greater")
+        res_less = stat_func(s0, s1, alternative="less")
+        res_greater = stat_func(s0, s1, alternative="greater")
 
         less_pvalue, greater_pvalue = res_less.pvalue, res_greater.pvalue
         if brunnermunzel_workaround:
@@ -201,61 +273,70 @@ def compareStats(
 
         return less_pvalue, greater_pvalue
 
-    results = {}
+    def compareBenchmark(bm_name: str, metrics0: dict, metrics1: dict) -> dict[str, BmCompResult]:
+        """Compare two sets of metrics for a single benchmark"""
+        nonlocal at_least_one_differs
 
-    for bm_name, metrics1 in sg1.items():
         assert isinstance(bm_name, str)
-        if bm_name not in sg2:
-            warn("Key/benchmark name '%s' not found in set2", bm_name)
-            continue
-        metrics2 = sg2[bm_name]
-        assert isinstance(metrics1, dict) and isinstance(metrics2, dict)
+        assert isinstance(metrics0, dict) and isinstance(metrics1, dict)
+        assert len(metrics0) > 0 and len(metrics1) > 0
+
+        common_metrics = metrics0.keys() & metrics1.keys()
+        if len(common_metrics) != len(metrics0) or len(common_metrics) != len(metrics1):
+            warn(
+                "Benchmark '%s' has different metrics in set0 and set1. Metrics from set1 "
+                "not found in set0 will be ignored.",
+                bm_name,
+            )
+            if debug_log:
+                logger.debug("Metrics in set0:", ", ".join(metrics0.keys()))
+                logger.debug("Metrics in set1:", ", ".join(metrics1.keys()))
 
         bm_results = {}
-        for metric_name, stats1 in metrics1.items():
+        for metric_name, stats0 in metrics0.items():
             assert isinstance(metric_name, str)
-            if metric_name not in metrics2:
+            if metric_name not in metrics1:
                 warn(
-                    "benchmark '%s', metric '%s' not found in metrics for set2",
+                    "benchmark '%s': metric '%s' not found in metrics for set1",
                     bm_name,
                     metric_name,
                 )
                 continue
-            stats2 = metrics2[metric_name]
-            assert isinstance(stats1, valid_metric_set_type) and isinstance(
-                stats2, valid_metric_set_type
-            )
+            stats1 = metrics1[metric_name]
+
+            assert isinstance(stats0, valid_metric_set_type)
+            assert isinstance(stats1, valid_metric_set_type)
+            if not isinstance(stats0, np.ndarray):
+                stats0 = np.array(stats0)
             if not isinstance(stats1, np.ndarray):
                 stats1 = np.array(stats1)
-            if not isinstance(stats2, np.ndarray):
-                stats2 = np.array(stats2)
-            assert np.ndim(stats1) == 1 and np.ndim(stats2) == 1
+            assert np.ndim(stats0) == 1 and np.ndim(stats1) == 1
 
-            size1, size2 = np.size(stats1), np.size(stats2)
-            if size1 < kMinStatsSize or size2 < kMinStatsSize:
+            size0, size1 = np.size(stats0), np.size(stats1)
+            if size0 < kMinStatsSize or size1 < kMinStatsSize:
                 warn(
-                    "benchmark '%s', metric '%s', one of sizes (%d, %d) is less than min possible size %d",
+                    "benchmark '%s': metric '%s', one of sizes (%d, %d) is less than min possible size %d",
                     bm_name,
                     metric_name,
+                    size0,
                     size1,
-                    size2,
                     kMinStatsSize,
                 )
                 continue
 
-            is_reliable = size1 >= kMinReliableStatsSize and size2 >= kMinReliableStatsSize
+            is_reliable = size0 >= kMinReliableStatsSize and size1 >= kMinReliableStatsSize
             if not is_reliable:
                 warn(
-                    "benchmark '%s', metric '%s', one of sizes (%d, %d) is less than min recommended size %d. "
+                    "benchmark '%s': metric '%s', one of sizes (%d, %d) is less than min recommended size %d. "
                     "Results might be not reliable",
                     bm_name,
                     metric_name,
+                    size0,
                     size1,
-                    size2,
                     kMinReliableStatsSize,
                 )
 
-            less_pvalue, greater_pvalue = computePValues(stats1, stats2)
+            less_pvalue, greater_pvalue = computePValues(stats0, stats1)
             less_positive, greater_positive = less_pvalue < alpha, greater_pvalue < alpha
             if less_positive and greater_positive:
                 # not sure this is a correct interpretation, but dunno what's better
@@ -277,11 +358,50 @@ def compareStats(
                     if less_positive
                     else (greater_pvalue if greater_positive else min(less_pvalue, greater_pvalue))
                 ),
+                stats0 if store_sets else np.mean(stats0),
                 stats1 if store_sets else np.mean(stats1),
-                stats2 if store_sets else np.mean(stats2),
                 # is_reliable,
+                size0,
                 size1,
-                size2,
             )
-        results[bm_name] = bm_results
+        return bm_results
+
+    results = {}
+
+    if with_alternatives:
+        pool = poolBenchmarks(alt_delimiter, sg0, sg1, logger if debug_log else None)
+
+        for common_name, alternatives in pool.items():
+            if len(alternatives) <= 1:
+                warn(
+                    "Benchmark '%s%s' has no alternatives. Skipping it.",
+                    common_name,
+                    next(iter(alternatives.keys())) if len(alternatives) == 1 else "???",
+                )
+                continue
+
+            for altA, altB in itertools.combinations(alternatives.keys(), 2):
+                assert isinstance(altA, str) and isinstance(altB, str)
+                assert altA != altB
+                bm_name = f"{common_name} {alt_delimiter} {altA} vs {altB}"
+                assert bm_name not in results
+                results[bm_name] = compareBenchmark(bm_name, alternatives[altA], alternatives[altB])
+
+    else:
+        common_bms = sg0.keys() & sg1.keys()
+        if len(common_bms) != len(sg0) or len(common_bms) != len(sg1):
+            warn(
+                "Datasets contain different keys/benchmarks. Keys not found in both datasets will be ignored."
+            )
+            if debug_log:
+                logger.debug("Benchmarks in set0:", ", ".join(sg0.keys()))
+                logger.debug("Benchmarks in set1:", ", ".join(sg1.keys()))
+
+        for bm_name, metrics1 in sg0.items():
+            assert isinstance(bm_name, str)
+            if bm_name not in sg1:
+                warn("Key/benchmark name '%s' not found in set2", bm_name)
+                continue
+            results[bm_name] = compareBenchmark(bm_name, metrics1, sg1[bm_name])
+
     return CompareStatsResult(results, method, alpha, bool(at_least_one_differs))

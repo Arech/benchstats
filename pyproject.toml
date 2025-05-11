@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchstats"
-version = "1.1.0"
+version = "2.0.0"
 description = "Statistical Testing for Benchmark Results Comparison"
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
@@ -43,3 +43,19 @@ benchstats = "benchstats.__main__:main"
 [tool.black]
 line-length = 100
 target-version = ['py311']
+
+[tool.ruff]
+preview = true
+exclude = [
+    ".git",
+    "build",
+    "__pycache__",
+]
+line-length = 100
+indent-width = 4
+target-version = "py311"
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 70
+line-ending = "lf"

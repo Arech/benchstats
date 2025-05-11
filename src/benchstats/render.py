@@ -45,8 +45,12 @@ def makeReadable(value: float, prec: int):
 
     def _render(v: float):
         if v >= 100.0:
-            return f"{sign}{v:{prec+4}.{prec}f}"
-        return f"{sign}{v:{prec+4}.{prec+1}f}" if v >= 10.0 else f"{sign}{v:{prec+4}.{prec+2}f}"
+            return f"{sign}{v:{prec + 4}.{prec}f}"
+        return (
+            f"{sign}{v:{prec + 4}.{prec + 1}f}"
+            if v >= 10.0
+            else f"{sign}{v:{prec + 4}.{prec + 2}f}"
+        )
 
     if 0 == value:
         return _render(0)
@@ -164,7 +168,7 @@ def renderComparisonResults(
     pval_fmt = (
         _getFmt("pval_format_generic") if 0.0 == float(f"{comp_res.alpha:{pval_fmt}}") else pval_fmt
     )
-    pval_total_len = len(f" p={1/3:{pval_fmt}}")
+    pval_total_len = len(f" p={1 / 3:{pval_fmt}}")
 
     if title is not None:
         if isinstance(title, bool):
@@ -227,7 +231,7 @@ def renderComparisonResults(
         row_styles=_getFmt(row_styles_fld),
     )
 
-    perc1 = perc2 = std1 = std2 = ""
+    perc0 = perc1 = std0 = std1 = ""
     show_sample_stats_perc = sample_stats is not None and len(sample_stats["percentiles"]) > 0
     show_sample_stats_std = sample_stats is not None and sample_stats["std"]
     std_sep = "," if show_sample_stats_perc else ""
@@ -252,34 +256,38 @@ def renderComparisonResults(
             comp_res_style = _getFmt(comp_res_fld)
 
             # set representative values & comparison result
+            repr_value0 = (
+                np.mean(res.val_set0) if isinstance(res.val_set0, np.ndarray) else res.val_set0
+            )
             repr_value1 = (
                 np.mean(res.val_set1) if isinstance(res.val_set1, np.ndarray) else res.val_set1
             )
-            repr_value2 = (
-                np.mean(res.val_set2) if isinstance(res.val_set2, np.ndarray) else res.val_set2
-            )
             txt = Text(
-                f"{makeReadable(repr_value1, metric_precision)}{unit} {res.result}",
+                f"{makeReadable(repr_value0, metric_precision)}{unit} {res.result}",
                 style=comp_res_style,
             )
             if is_diff:
                 txt.stylize(_getFmt("diff_result_sign"), -1)
             txt.append(
-                f" {makeReadable(repr_value2, metric_precision)}{unit}", style=comp_res_style
+                f" {makeReadable(repr_value1, metric_precision)}{unit}", style=comp_res_style
             )
 
             if sample_stats is not None:
-                assert isinstance(res.val_set1, np.ndarray), "Need raw dataset to show sample_stats"
+                assert isinstance(res.val_set0, np.ndarray), "Need raw dataset to show sample_stats"
                 if show_sample_stats_perc:
-                    perc1 = f"[{','.join([makeReadable(pv,metric_precision) for pv in np.percentile(res.val_set1, sample_stats['percentiles'])])}]"
-                    perc2 = f"[{','.join([makeReadable(pv,metric_precision) for pv in np.percentile(res.val_set2, sample_stats['percentiles'])])}]"
+                    perc0 = f"[{','.join([makeReadable(pv, metric_precision) for pv in np.percentile(res.val_set0, sample_stats['percentiles'])])}]"
+                    perc1 = f"[{','.join([makeReadable(pv, metric_precision) for pv in np.percentile(res.val_set1, sample_stats['percentiles'])])}]"
 
                 if show_sample_stats_std:
-                    std1 = f"{std_sep}{makeReadable(np.std(res.val_set1,ddof=1),metric_precision)}"
-                    std2 = f"{std_sep}{makeReadable(np.std(res.val_set2,ddof=1),metric_precision)}"
+                    std0 = (
+                        f"{std_sep}{makeReadable(np.std(res.val_set0, ddof=1), metric_precision)}"
+                    )
+                    std1 = (
+                        f"{std_sep}{makeReadable(np.std(res.val_set1, ddof=1), metric_precision)}"
+                    )
 
                 txt.append(
-                    f"{delim_space}{perc1}{std1} {res.result}{stats_set_delim}{perc2}{std2}",
+                    f"{delim_space}{perc0}{std0} {res.result}{stats_set_delim}{perc1}{std1}",
                     style=comp_res_style,
                 )
 
@@ -326,6 +334,6 @@ def renderComparisonResults(
             fp_l, fp_g = fp_less_metrics.get(m, 0), fp_gr_metrics.get(m, 0)
             console.print(
                 f"[bold white]{m:{metr_len}s}:[/bold white]"
-                f" for [bold]<[/bold] {fp_l:{tot_width}d} ({fp_l*100/n_total:{3+prec}.{prec}f}%)"
-                f" for [bold]>[/bold] {fp_g:{tot_width}d} ({fp_g*100/n_total:{3+prec}.{prec}f}%)"
+                f" for [bold]<[/bold] {fp_l:{tot_width}d} ({fp_l * 100 / n_total:{3 + prec}.{prec}f}%)"
+                f" for [bold]>[/bold] {fp_g:{tot_width}d} ({fp_g * 100 / n_total:{3 + prec}.{prec}f}%)"
             )

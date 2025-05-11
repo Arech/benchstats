@@ -1,6 +1,9 @@
 # Statistical Testing for Benchmark Results Comparison
 
-`benchstats` is a Python 3.10+ package that lets you compare two sets of benchmark results<sup>*</sup> using proper statistical tests and make a readable report on that. This lets remove guesswork and WAGs from interpretation of benchmarking results, and obtain a solid<sup>**</sup> answer to a question "is the algorithm implementation A is faster than the algorithm implementation B".
+`benchstats` is a Python 3.10+ package for performing comparison of benchmark results<sup>*</sup> with proper statistical tests and make a readable report on that. This lets remove guesswork and WAGs from interpretation of benchmarking results, and obtain a solid<sup>**</sup> answer to a question "is the algorithm implementation A is faster than the algorithm implementation B".
+
+`benchstats.qbench` module contains helper methods for simple benchmarking of Python callables. See
+a corresponding section at the end of this README for details.
 
 Code that read input data, perform statistical testing and then visualize results is coupled only by a shared data types and it could easily be used separately if needed (for example, to build a performance regression testing pipeline).
 
@@ -36,7 +39,9 @@ For command line use see section "Examples" and "Command Line Interface Referenc
 
 ## Examples of Benchmark Comparison
 
-*(I'll use a Google Benchmark-derived binary as a data source for the examples, but just reminding that any data source could be easily plugged-in and used instead. For conciseness, I'll shorten "Google Benchmark" to simply "GBench")*
+*/\* I'll use a Google Benchmark-derived binary as a data source for the examples, but just reminding that any data source could be easily plugged-in and used instead. For conciseness, I'll shorten "Google Benchmark" to simply "GBench".*
+
+*For the examples of benchmarking of Python callables, see "Benchmarking Python callables" section below \*/*
 
 Note that in all cases, you should **always use at least 10 repetitions** of a benchmark (`--benchmark_repetitions=10`). Even 2 repetitions would work, but the more data you have, the more reliable results are, and at least 10 is a reasonable minimum, especially for Brunner Munzel test, which is a default test. `--benchmark_enable_random_interleaving` flag is highly recommended too.
 
@@ -268,6 +273,85 @@ The code is pretty trivial, so I'll post only a high-level overview: there are 3
     - produces `benchstats.compare.CompareStatsResult` namedtuple object with comparison results for that benchmarks+metrics, common to both source data sets.
 3. a rendering method `renderComparisonResults()` from `benchstats.render`:
     - takes `benchstats.compare.CompareStatsResult` namedtuple produced by `compareStats()`, plus various control parameters, and renders it according to the rules and styles.
+
+### Benchmarking Python Callables
+
+`benchstats.qbench` module contains:
+-  a simple benchmark runner `bench()` function, that takes a set
+of callables and runs them with a given number of repetitions / iterations / warmups, and returns
+a 3D numpy tensor of shape `[n_callables, repetitions, iterations]` with measured latencies
+- a visualizer function `showBench()` that takes measured latencies and the names of benchmarks and
+emits a report on them
+- and a combined `benchmark()` function, that benchmarks given callables and show a report.
+
+Check `src/benchstats/qbench.py` source for details parameters description.
+
+Examples of use:
+
+*Note, contrary to the examples above, this is a text log of a REPL session, so text is colored by GitHub's markdown formatter*
+
+```python
+>>> import time;
+>>> from benchstats import qbench as qb;
+>>> # benchmark with default settings (repetitions=10, iterations=100)
+>>> r = qb.bench((lambda:time.sleep(0.001), lambda:time.sleep(0.00102), lambda:time.sleep(0.0012)))
+>>> s = qb.showBench(r) # use default benchmark name and numeric alternative names
+Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃               ┃ min (means),             ┃ mean (means),            ┃
+┃ Benchmark     ┃ [0%, 50%, 100%]          ┃ [0%, 50%, 100%]          ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ code | 0 vs 1 │ 1.031ms < 1.048ms        │ 1.118ms ~ 1.108ms        │
+│               │ [1.021m,1.029m,1.057m] < │ [1.085m,1.113m,1.159m] ~ │
+│               │ [1.039m,1.048m,1.062m]   │ [1.093m,1.096m,1.141m]   │
+│               │ p=0.00024 (10 vs 10)     │           (10 vs 10)     │
+│ code | 0 vs 2 │ 1.031ms < 1.235ms        │ 1.118ms < 1.293ms        │
+│               │ [1.021m,1.029m,1.057m] < │ [1.085m,1.113m,1.159m] < │
+│               │ [1.224m,1.230m,1.257m]   │ [1.274m,1.283m,1.320m]   │
+│               │ p=0.00000+(10 vs 10)     │ p=0.00000+(10 vs 10)     │
+│ code | 1 vs 2 │ 1.048ms < 1.235ms        │ 1.108ms < 1.293ms        │
+│               │ [1.039m,1.048m,1.062m] < │ [1.093m,1.096m,1.141m] < │
+│               │ [1.224m,1.230m,1.257m]   │ [1.274m,1.283m,1.320m]   │
+│               │ p=0.00000+(10 vs 10)     │ p=0.00000+(10 vs 10)     │
+└───────────────┴──────────────────────────┴──────────────────────────┘
+>>> s = qb.showBench(r, ("c|A","c|B","c|C"), "|") # custom names
+Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃            ┃ min (means),             ┃ mean (means),            ┃
+┃ Benchmark  ┃ [0%, 50%, 100%]          ┃ [0%, 50%, 100%]          ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ c | A vs B │ 1.031ms < 1.048ms        │ 1.118ms ~ 1.108ms        │
+│            │ [1.021m,1.029m,1.057m] < │ [1.085m,1.113m,1.159m] ~ │
+│            │ [1.039m,1.048m,1.062m]   │ [1.093m,1.096m,1.141m]   │
+│            │ p=0.00024 (10 vs 10)     │           (10 vs 10)     │
+│ c | A vs C │ 1.031ms < 1.235ms        │ 1.118ms < 1.293ms        │
+│            │ [1.021m,1.029m,1.057m] < │ [1.085m,1.113m,1.159m] < │
+│            │ [1.224m,1.230m,1.257m]   │ [1.274m,1.283m,1.320m]   │
+│            │ p=0.00000+(10 vs 10)     │ p=0.00000+(10 vs 10)     │
+│ c | B vs C │ 1.048ms < 1.235ms        │ 1.108ms < 1.293ms        │
+│            │ [1.039m,1.048m,1.062m] < │ [1.093m,1.096m,1.141m] < │
+│            │ [1.224m,1.230m,1.257m]   │ [1.274m,1.283m,1.320m]   │
+│            │ p=0.00000+(10 vs 10)     │ p=0.00000+(10 vs 10)     │
+└────────────┴──────────────────────────┴──────────────────────────┘
+>>> # benchmark 4 callables
+>>> r = qb.bench((lambda:time.sleep(0.001), lambda:time.sleep(0.00102), lambda:time.sleep(0.0012), lambda: time.sleep(0.00125)))
+>>> s = qb.showBench(r,("A","B")) # compare first two as alternatives of A, and the last two as B
+Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃            ┃ min (means),             ┃ mean (means),            ┃
+┃ Benchmark  ┃ [0%, 50%, 100%]          ┃ [0%, 50%, 100%]          ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ A | 0 vs 1 │ 1.050ms ~ 1.064ms        │ 1.110ms ~ 1.125ms        │
+│            │ [1.028m,1.055m,1.061m] ~ │ [1.074m,1.112m,1.149m] ~ │
+│            │ [1.047m,1.064m,1.079m]   │ [1.095m,1.128m,1.155m]   │
+│            │           (10 vs 10)     │           (10 vs 10)     │
+│ B | 0 vs 1 │ 1.254ms < 1.300ms        │ 1.321ms < 1.358ms        │
+│            │ [1.231m,1.259m,1.263m] < │ [1.308m,1.321m,1.332m] < │
+│            │ [1.275m,1.307m,1.312m]   │ [1.323m,1.362m,1.394m]   │
+│            │ p=0.00000+(10 vs 10)     │ p=0.00007 (10 vs 10)     │
+└────────────┴──────────────────────────┴──────────────────────────┘
+
+```
 
 ## Stability and Changelog
 

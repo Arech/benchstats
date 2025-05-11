@@ -1,3 +1,9 @@
+# 2.0.0
+- Backward compatibility breaking renaming of fields in data types of `compare` module.
+- `compare.compareStats()` received an `alt_delimiter` parameter and a whole different mode
+of pooling benchmarks to compare. This mode is not supported by CLI yet.
+- A new module `qbench` is introduced for quick and simple benchmarking of Python callables.
+
 # 1.1.0
 - Add `--metric_precision` CLI argument.
 - Ensure benchmark name column isn't wrapped (doesn't seem possible for all columns without risk of
