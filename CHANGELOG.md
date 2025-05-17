@@ -1,3 +1,15 @@
+# 3.0.0
+- Breaking change: API of qbench module now uses simplified pass-through arguments to configure
+    benchmarking. Now it's possible to just write
+    `qb.benchmark(funcs, iters=50, reps=12, alpha=0.01, title="My benchmark")`
+    to run a benchmark of `funcs` tuple while directly passing `iters=50, reps=12` to `qb.bench()`
+    function, and passing `alpha=0.01` to `compareStats()` with `title="My benchmark"` to
+    `renderComparisonResults()` through `qb.showBench()`
+- `renderComparisonResults()` got parameter `show_percent_diff:bool = True` to calculate percentage
+    difference between the two sets. `--percent_diff` and `no-percent_diff` are corresponding CLI
+    options.
+- slightly tweaked alternating row color for dark theme
+
 # 2.0.0
 - Backward compatibility breaking renaming of fields in data types of `compare` module.
 - `compare.compareStats()` received an `alt_delimiter` parameter and a whole different mode

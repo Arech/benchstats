@@ -88,6 +88,7 @@ def main():
         always_show_pvalues=args.always_show_pvalues,
         multiline=args.multiline,
         metric_precision=args.metric_precision,
+        show_percent_diff=args.percent_diff,
     )
 
     if cr.at_least_one_differs:

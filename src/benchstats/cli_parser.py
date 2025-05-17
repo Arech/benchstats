@@ -179,12 +179,10 @@ class myCSV(ParserBase):
         "--method",
         help=(
             "Selects a method of statistical testing. Possible values are are: "
-            + ", ".join(
-                [
-                    "'" + id + f"' for {descr['name']} ({descr['url'].replace('%','%%')})"
-                    for (id, descr) in kMethods.items()
-                ]
-            )
+            + ", ".join([
+                "'" + id + f"' for {descr['name']} ({descr['url'].replace('%', '%%')})"
+                for (id, descr) in kMethods.items()
+            ])
             + ". Default is %(default)s"
         ),
         metavar="<method id>",
@@ -227,7 +225,15 @@ class myCSV(ParserBase):
 
     g_rendering.add_argument(
         "--sample_sizes",
-        help="Controls whether to show sizes of datasets used in a test. Default %(default)s",
+        help="Controls whether to show sizes of datasets used in a test. Default is %(default)s.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+
+    g_rendering.add_argument(
+        "--percent_diff",
+        help="Controls whether to show percentage difference between comparable values. When on, "
+        "shows it in curly {} braces. Default is %(default)s.",
         action=argparse.BooleanOptionalAction,
         default=True,
     )
@@ -236,8 +242,9 @@ class myCSV(ParserBase):
     stat_options = "', '".join(kPossibleStatNames.keys())
     g_rendering.add_argument(
         "--sample_stats",
-        help="Sets which additional statistics about compared samples sets to show. Could be any sequence of floats "
-        "(must be in range [0,100], designating a percentile value to calculate), or aliases '"
+        help="Sets which additional statistics about compared samples sets to show. Could be any "
+        "space separated sequence of floats (must be in range [0,100], designating a percentile "
+        "value to calculate), or aliases '"
         f"{stat_options}' (shortenings are accepted). Use of 'std', though isn't "
         "recommended as standard deviation doesn't really mean anything for most distributions "
         "beyond Normal.",
@@ -250,7 +257,7 @@ class myCSV(ParserBase):
         "--metric_precision",
         help="Total number of digits in a metric value reported. Minimum is 3. Default is %(default)s",
         metavar="<int>=3>",
-        type=int,        
+        type=int,
         default=4,
     )
 

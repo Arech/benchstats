@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchstats"
-version = "2.0.0"
+version = "3.0.0"
 description = "Statistical Testing for Benchmark Results Comparison"
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]

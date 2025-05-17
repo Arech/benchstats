@@ -196,6 +196,7 @@ usage: __main__.py [-h] [--show_debug | --no-show_debug]
     [--bonferroni]
     [--always_show_pvalues]
     [--sample_sizes | --no-sample_sizes]
+    [--percent_diff | --no-percent_diff]
     [--sample_stats <stat ids> [<stat ids> ...]]
     [--metric_precision <int>=3>]
     [--expect_same]
@@ -246,7 +247,8 @@ Controls how results are rendered
 - `--always_show_pvalues` If set, always show p-values. By default it shows p-values only for significant differences. Note that when two sets are compared stochastically
 same (`~`), or more precisely, not stochastically less and not stochastically greater (see [Stochastic ordering](https://en.wikipedia.org/wiki/Stochastic_ordering)),
 p-value shown is a minimum of two p-values for less and greater comparison.
-- `--sample_sizes, --no-sample_sizes` Controls whether to show sizes of datasets used in a test. Default `True`
+- `--sample_sizes, --no-sample_sizes` Controls whether to show sizes of datasets used in a test. Default is `True`.
+- `--percent_diff, --no-percent_diff` Controls whether to show percentage difference between comparable values. When on, shows it in curly {} braces. Default is `True`.
 - `--sample_stats <stat ids> [<stat ids> ...]` Sets which additional statistics about compared samples sets to show. Could be any sequence of floats (must be in range `[0,100]`, designating a percentile value to calculate), or aliases `extremums`, `median`, `iqr` (interquartile range), `std` (standard deviation). Shortenings are accepted. Use of `std`, though isn't recommended as standard deviation doesn't really mean anything for most distributions beyond Normal.
 - `--metric_precision <int>=3>` Total number of digits in a metric value reported. Minimum is 3. Default is 4.
 - `--expect_same` If set, assumes that distributions are the same (i.e. `H0` hypothesis is true) and shows some additional statistics useful for ensuring that a

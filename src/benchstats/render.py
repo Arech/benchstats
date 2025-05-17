@@ -29,7 +29,7 @@ kDefaultStyles = {
     "metric_scnd_same": None,
     "min_metric_name_len": 10,
     "percents_precision": 1,
-    "row_styles_dark": ["", "on #181818"],
+    "row_styles_dark": ["", "on #202020"],
     "row_styles_light": ["", "on #F0F0F0"],
     "header_perc_fmt": ".2f",
     "show_stats_header": True,
@@ -140,6 +140,9 @@ def renderComparisonResults(
     always_show_pvalues: bool = False,
     multiline: bool = True,  # per metric report uses several lines
     metric_precision: int = 4,  # total digits in metric reported value. Min 3
+    show_percent_diff: bool = True,  # if true, also show percent difference between values.
+    # Value 0 is always the base of comparison, so the diff is always (value1 - value0) / value0.
+    # Curly braces are used to mark the percent difference in the output.
 ) -> None:
     if console is None:
         console = LoggingConsole(emoji=False, highlight=False)
@@ -181,8 +184,6 @@ def renderComparisonResults(
     assert title is None or isinstance(title, str)
 
     delim_space = "\n" if multiline else " "
-    # delim_nospace = "\n" if multiline else ""
-    # delim_space_multiline = " " if multiline else ""
 
     _column_descr = (
         f",{delim_space}{_column_descr}"
@@ -231,11 +232,12 @@ def renderComparisonResults(
         row_styles=_getFmt(row_styles_fld),
     )
 
-    perc0 = perc1 = std0 = std1 = ""
+    perc0 = perc1 = std0 = std1 = std_perc_diff = ""  # not changing if flags aren't right
     show_sample_stats_perc = sample_stats is not None and len(sample_stats["percentiles"]) > 0
     show_sample_stats_std = sample_stats is not None and sample_stats["std"]
     std_sep = "," if show_sample_stats_perc else ""
     stats_set_delim = delim_space if show_sample_stats_perc else " "
+    percent_delim = delim_space if show_percent_diff else " "
 
     for bm_name, results in comp_res.results.items():
         diff_main = any([r.result != "~" for m, r in results.items() if m in main_metrics])
@@ -272,22 +274,40 @@ def renderComparisonResults(
                 f" {makeReadable(repr_value1, metric_precision)}{unit}", style=comp_res_style
             )
 
+            if show_percent_diff:
+                percent_diff = (repr_value1 - repr_value0) * 100.0 / repr_value0
+                txt.append(f" {{{percent_diff:+.1f}%}}")
+
             if sample_stats is not None:
                 assert isinstance(res.val_set0, np.ndarray), "Need raw dataset to show sample_stats"
+                percent_diff = ""
                 if show_sample_stats_perc:
-                    perc0 = f"[{','.join([makeReadable(pv, metric_precision) for pv in np.percentile(res.val_set0, sample_stats['percentiles'])])}]"
-                    perc1 = f"[{','.join([makeReadable(pv, metric_precision) for pv in np.percentile(res.val_set1, sample_stats['percentiles'])])}]"
+                    perc_set0 = np.percentile(res.val_set0, sample_stats["percentiles"])
+                    perc_set1 = np.percentile(res.val_set1, sample_stats["percentiles"])
+                    perc0 = (
+                        f"[{','.join([makeReadable(pv, metric_precision) for pv in perc_set0])}]"
+                    )
+                    perc1 = (
+                        f"[{','.join([makeReadable(pv, metric_precision) for pv in perc_set1])}]"
+                    )
+                    if show_percent_diff:
+                        percent_diff = [
+                            f"{(perc_set1[idx] - p0) * 100.0 / p0:+.1f}%"
+                            for idx, p0 in enumerate(perc_set0)
+                        ]
+                        percent_diff = f"{{{','.join(percent_diff)}}}"
 
                 if show_sample_stats_std:
-                    std0 = (
-                        f"{std_sep}{makeReadable(np.std(res.val_set0, ddof=1), metric_precision)}"
-                    )
-                    std1 = (
-                        f"{std_sep}{makeReadable(np.std(res.val_set1, ddof=1), metric_precision)}"
-                    )
+                    s0 = np.std(res.val_set0, ddof=1)
+                    s1 = np.std(res.val_set1, ddof=1)
+                    std0 = f"{std_sep}{makeReadable(s0, metric_precision)}"
+                    std1 = f"{std_sep}{makeReadable(s1, metric_precision)}"
+                    if show_percent_diff:
+                        std_perc_diff = f"{{{(s1 - s0) * 100.0 / s0:+.1f}%}}"
 
                 txt.append(
-                    f"{delim_space}{perc0}{std0} {res.result}{stats_set_delim}{perc1}{std1}",
+                    f"{delim_space}{perc0}{std0} {res.result}{stats_set_delim}{perc1}{std1}"
+                    f"{percent_delim}{percent_diff}{std_perc_diff}",
                     style=comp_res_style,
                 )
 

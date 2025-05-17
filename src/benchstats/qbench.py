@@ -6,11 +6,29 @@ of Python callables.
 import time
 import numpy as np
 import itertools
-from rich.progress import track, Progress
+import inspect
+from rich.progress import Progress
 
 from benchstats.compare import compareStats, CompareStatsResult
 from benchstats.render import renderComparisonResults
 from benchstats.common import LoggingConsole
+
+
+# support for combined arguments of showBench()
+_g_compareStats_args = None
+_g_renderComparisonResults_args = None
+_g_joint_args = None
+
+
+def _getOptionalArgs(func):
+    arg_spec = inspect.getfullargspec(func)
+    return frozenset(arg_spec[0][len(arg_spec[0]) - len(arg_spec[3]) :])
+
+
+if _g_compareStats_args is None:
+    _g_compareStats_args = _getOptionalArgs(compareStats)
+    _g_renderComparisonResults_args = _getOptionalArgs(renderComparisonResults)
+    _g_joint_args = _g_compareStats_args.intersection(_g_renderComparisonResults_args)
 
 
 def bench(
@@ -115,8 +133,7 @@ def showBench(
     alt_delimiter: str | None = None,
     metrics: dict = {"min": np.min, "mean": np.mean},
     console: LoggingConsole = LoggingConsole(),
-    compareStatsArgs: dict = {"store_sets": True},
-    renderArgs: dict = {"show_sample_sizes": True, "sample_stats": ("extremums", "median")},
+    **kwCompareStats_and_renderArgs,
 ) -> CompareStatsResult:
     """
     Displays the benchmark results in a human-readable format.
@@ -146,8 +163,10 @@ def showBench(
                     "<common_name>{alt_delimiter}<alternative_name>".
         metrics (dict[str, callable], optional): A description of metrics functions used to
             aggregate data from individual benchmark iterations.
-        compareStatsArgs (dict, optional): Additional arguments for the compareStats function.
-        renderArgs (dict, optional): Additional arguments for the renderComparisonResults function.
+        kwCompareStats_and_renderArgs: Any optional arguments of the compareStats()
+            or renderComparisonResults() functions. By default compareStats() also gets
+            store_sets=True argument, and renderComparisonResults() gets
+            show_sample_sizes=True and sample_stats=("extremums", "median") arguments.
     """
     if results.ndim == 2:
         results = np.expand_dims(results, axis=0)
@@ -161,6 +180,28 @@ def showBench(
     n_names = len(bm_names)
     if n_names == 0:
         raise ValueError("names must be a non-empty tuple or list of strings.")
+
+    compareStats_args = {"store_sets": True}
+    renderComparisonResults_args = {
+        "show_sample_sizes": True,
+        "sample_stats": ("extremums", "median"),
+    }
+    unknown_args = {}
+    for k, v in kwCompareStats_and_renderArgs.items():
+        if k in _g_joint_args:
+            compareStats_args[k] = v
+            renderComparisonResults_args[k] = v
+        elif k in _g_compareStats_args:
+            compareStats_args[k] = v
+        elif k in _g_renderComparisonResults_args:
+            renderComparisonResults_args[k] = v
+        else:
+            unknown_args[k] = v
+    if len(unknown_args) > 0:
+        raise ValueError(
+            f"Unknown arguments: {', '.join(unknown_args.keys())}. "
+            "Please check the signature of compare.compareStats() and render.renderComparisonResults() for valid arguments."
+        )
 
     def addBenchmark(sg: dict, bm_name: str, b_idx: int):
         assert bm_name not in sg, (
@@ -214,12 +255,37 @@ def showBench(
                 )
             addBenchmark(sg, bm_name, b_idx)
 
-    sr = compareStats(sg, None, alt_delimiter=alt_delimiter, debug_log=console, **compareStatsArgs)
-    renderComparisonResults(sr, console=console, **renderArgs)
+    sr = compareStats(sg, None, alt_delimiter=alt_delimiter, debug_log=console, **compareStats_args)
+    renderComparisonResults(sr, console=console, **renderComparisonResults_args)
     return sr
 
-def benchmark(funcs: tuple | list, bench_args: dict = {}, **show_args):
+
+_g_bench_args = None
+_g_showBench_args = None
+if _g_bench_args is None:
+    _g_bench_args = _getOptionalArgs(bench)
+    _g_showBench_args = _getOptionalArgs(showBench)
+
+
+def benchmark(funcs: tuple | list, **kwargs):
     """
-    Benchmarks the provided callables and displays the results."""
+    Benchmarks the provided callables and displays the results.
+    Args:
+        funcs (tuple|list|callable): A tuple of callables, each callable must be invocable without
+            arguments; Or a single callable to benchmark.
+        **kwargs: Additional keyword arguments for the bench() and showBench() functions, as well as
+            optional arguments for compareStats() and renderComparisonResults() functions.
+    """
+    bench_args = {}
+    show_args = {}
+    compare_and_render_args = {}
+    for k, v in kwargs.items():
+        if k in _g_bench_args:
+            bench_args[k] = v
+        elif k in _g_showBench_args:
+            show_args[k] = v
+        else:
+            compare_and_render_args[k] = v
+
     results = bench(funcs, **bench_args)
-    return showBench(results, **show_args)
+    return showBench(results, **show_args, **compare_and_render_args)
