@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchstats"
-version = "3.0.0"
+version = "3.0.0.post1"
 description = "Statistical Testing for Benchmark Results Comparison"
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
@@ -13,6 +13,12 @@ license-files = ["LICEN[CS]E*"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: Science/Research",
@@ -36,6 +42,9 @@ requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/Arech/benchstats"
+Source = "https://github.com/Arech/benchstats"
+Changelog = "https://github.com/Arech/benchstats/blob/main/CHANGELOG.md"
+Bugtracker = "https://github.com/Arech/benchstats/issues"
 
 [project.scripts]
 benchstats = "benchstats.__main__:main"
