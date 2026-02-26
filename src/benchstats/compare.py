@@ -104,10 +104,11 @@ def poolBenchmarks(
     sg1: dict[str, dict[str, Iterable[float]]] | None,
     logger: LoggingConsole | None = None,
 ) -> dict[str, dict[str, dict[str, Iterable[float]]]]:
-    """Using the specified delimiter dividing the benchmark name into a common part and an
-    alternative name part, merges the benchmarks from one or two sets of benchmarks into a single
-    pool represented by a dictionary where a key specifies common part of benchmark name and a value
-    is a dict mapping from alternative name to a dictionary of metric names and their values.
+    """Using the specified delimiter divides each benchmark name into (the longest possible) common
+    part and an alternative name part, merges the benchmarks from one or two sets of benchmarks into
+    a single pool represented by a dictionary where a key specifies common part of benchmark name
+    and a value is a dict mapping from alternative name to a dictionary of metric names and their
+    values.
 
     If a benchmark name doesn't contain the delimiter, then its common name is assumed to be a whole
     benchmark name, and its alternative name is assumed to either "0" or "1" depending on the
@@ -123,7 +124,7 @@ def poolBenchmarks(
     def splitName(bm_name: str, pfx: str) -> tuple[str, str]:
         """Splits the benchmark name into a common part and an alternative part"""
         assert isinstance(bm_name, str)
-        s = bm_name.split(sep=alt_delimiter, maxsplit=1)
+        s = bm_name.rsplit(sep=alt_delimiter, maxsplit=1)
         if len(s) > 1:
             alt_name = s[1].strip()
             return s[0].strip(), pfx + (

@@ -79,7 +79,7 @@ class LoggingConsole(rich.console.Console):
         else:
             sep = " "
             kwargs["sep"] = sep
-        return super().print(f"\[[{color}]{lvl:4s}[/{color}]]{sep}", *args, **kwargs)
+        return super().print(f"[[{color}]{lvl:4s}[/{color}]]{sep}", *args, **kwargs)
 
     def debug(self, *args, **kwargs):
         if self.log_level > LoggingConsole.LogLevel.Debug:

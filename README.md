@@ -316,7 +316,7 @@ Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
 │               │ [1.224m,1.230m,1.257m]   │ [1.274m,1.283m,1.320m]   │
 │               │ p=0.00000+(10 vs 10)     │ p=0.00000+(10 vs 10)     │
 └───────────────┴──────────────────────────┴──────────────────────────┘
->>> s = qb.showBench(r, ("c|A","c|B","c|C"), "|") # custom names
+>>> s = qb.showBench(r, bm_names=("c|A","c|B","c|C"), alt_delimiter="|") # custom names
 Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
 ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃            ┃ min (means),             ┃ mean (means),            ┃
@@ -337,7 +337,7 @@ Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
 └────────────┴──────────────────────────┴──────────────────────────┘
 >>> # benchmark 4 callables
 >>> r = qb.bench((lambda:time.sleep(0.001), lambda:time.sleep(0.00102), lambda:time.sleep(0.0012), lambda: time.sleep(0.00125)))
->>> s = qb.showBench(r,("A","B")) # compare first two as alternatives of A, and the last two as B
+>>> s = qb.showBench(r,bm_names=("A","B")) # compare first two as alternatives of A, and the last two as B
 Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
 ┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃            ┃ min (means),             ┃ mean (means),            ┃
