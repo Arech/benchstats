@@ -116,7 +116,10 @@ class BenchmarkDescription(
         assert len(args) == cls._n_posargs and all(callable(f) for f in args)
 
         def _extractDefault(idx, def_val):
-            v = it[idx] if it_len >= cls._n_posargs else None
+            if idx < it_len:
+                v = it[idx] if it_len >= cls._n_posargs else None
+            else:
+                v = None
             return def_val if v is None else v
 
         kwargs = {
@@ -171,7 +174,17 @@ def _toBenchmarkDescription(
     for e in funcs:
         if callable(e):
             # important to use from_iterable() to inject defaults
-            ret.append(BenchmarkDescription.from_iterable((e, def_args_func)))
+            ret.append(
+                BenchmarkDescription.from_iterable(
+                    BenchmarkDescription(
+                        e,
+                        def_args_func,
+                        def_clear_cache,
+                        wait_arg_complete=def_wait_arg_complete,
+                        wait_func_complete=def_wait_func_complete,
+                    )
+                )
+            )
         else:
             ret.append(
                 BenchmarkDescription.from_iterable(
@@ -206,12 +219,13 @@ def bench(
     Arguments:
     - funcs (Iterable): A single callable, or an iterable describing callables to benchmark.
         In the latter case, each element could contain either:
-        - a callable that could be used without arguments, or
-        - an iterable containing `BenchmarkDescription` tuple or 1-3 callables:
-            (bench_func, args_func, clear_cache_func), where args_func is function of 0 arguments
-            returning a tuple or a list of arguments to pass to the bench_func, and clear_cache_func
-            is a function taking an iterable returned from args_func() and doing all the necessary
-            cache clearing.
+        - a single callable that could be used without arguments, or
+        - an iterable containing `BenchmarkDescription` tuple or another iterable of 1-5 callables:
+            (bench_func, args_func, clear_cache_func, wait_arg_complete, wait_func_complete),
+            where args_func is function of 0 arguments returning a tuple or a list of arguments to
+            pass to the bench_func, and clear_cache_func, wait_arg_complete and wait_func_complete
+            are respective functions tailored to the bench_func (but signatures should follow the
+            global rules described below)
     - iters (int, optional): Number of iterations per repetition. Defaults to 100.
     - reps (int, optional): Number of repetitions. Defaults to 10.
     - warmup (int, optional): Number of warmup iterations. Warmups are useful for letting the
@@ -254,6 +268,8 @@ def bench(
         # it's super important to materialize genexpr here, or it'll be timed!
         inputs = tuple(bd.wait_arg_complete(a) for a in args)
 
+        bd.clear_cache_func(inputs)
+
         start = perf_counter_ns()
         o = bd.wait_func_complete(bd.bench_func(*inputs))
         end = perf_counter_ns()
@@ -279,6 +295,7 @@ def bench(
         else:
             iter_task = progress.add_task("Iterations", total=iters)
         reps_task = progress.add_task("Repetitions", total=reps)
+        # note that return of progress.track() is single use!!
         rwarmup = progress.track(range(warmup), task_id=warmup_task)
         rreps = progress.track(range(reps), task_id=reps_task)
         progress.start()
@@ -286,8 +303,8 @@ def bench(
         rreps = range(reps)
         rwarmup = range(warmup)
 
-    for f in funcs:
-        for _ in rwarmup:
+    for _ in rwarmup:  # rwarmup is single use!
+        for f in funcs:
             _time_execution(f)
 
     if show_progress:
@@ -297,7 +314,7 @@ def bench(
     bm_idxs = np.arange(n_funcs, dtype=np.int32)
     rng = np.random.default_rng()
 
-    for r in rreps:
+    for r in rreps:  # rreps is single use!
         if show_progress:
             progress.update(func_task if batch_functions else iter_task, completed=0)
 
