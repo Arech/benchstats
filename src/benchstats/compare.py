@@ -32,7 +32,15 @@ class BmCompResult(
 ):
     __slots__ = ()
 
-    def __new__(cls, res: str, pval: float, v0: float, v1: float, siz0: int, siz1: int):
+    def __new__(
+        cls,
+        res: str,
+        pval: float | int,
+        v0: float | int | np.ndarray,
+        v1: float | int | np.ndarray,
+        siz0: int,
+        siz1: int,
+    ):
         """Constructor to verify initialization correctness
 
         - res/result is a comparison result:
@@ -50,7 +58,14 @@ class BmCompResult(
         """
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
+        if isinstance(pval, int):
+            pval = float(pval)
         assert isinstance(pval, kAllowedFpTypes)
+        assert 0 <= pval <= 1
+        if isinstance(v0, int):
+            v0 = float(v0)
+        if isinstance(v1, int):
+            v1 = float(v1)
         assert (isinstance(v0, kAllowedFpTypes) and isinstance(v1, kAllowedFpTypes)) or (
             isinstance(v0, np.ndarray) and isinstance(v1, np.ndarray)
         )
@@ -69,33 +84,93 @@ class BmCompResult(
         )
 
 
-class CompareStatsResult(
-    namedtuple("CompareStatsResult", ["results", "method", "alpha", "at_least_one_differs"])
-):
-    __slots__ = ()
-
-    def __new__(cls, res: dict[str, dict[str, BmCompResult]], met: str, al: float, one_dif: bool):
+class CompareStatsResult:
+    def __init__(
+        self,
+        results: dict[str, dict[str, BmCompResult]],
+        method: str,
+        alpha: float,
+        at_least_one_differs: bool,
+    ):
         """Constructor to verify initialization correctness.
-        - res/results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys
-            (benchmark_name's ) are common between the data sources sg0 and sg1
+        - results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys of the
+            top-level dict are common between the data sources sg0 and sg1.
         """
-        assert isinstance(res, dict) and isinstance(met, str) and len(met) > 0
-        assert isinstance(al, kAllowedFpTypes) and isinstance(one_dif, (bool, np.bool_))
-        return super().__new__(cls, res, met, float(al), bool(one_dif))
+        assert isinstance(results, dict) and isinstance(method, str) and method
+        assert isinstance(alpha, kAllowedFpTypes)
+        assert isinstance(at_least_one_differs, (bool, np.bool_))
+        self._results: dict[str, dict[str, BmCompResult]] = results
+        self._method: str = method
+        self._alpha: float = float(alpha)
+        self._at_least_one_differs = bool(at_least_one_differs)
+        # {benchmark_name -> {metric_name -> {result_type -> list of pvalues}}}
+        self._pval_stats: None | dict[str, dict[str, dict[str, list[float]]]] = None
+
+    @property
+    def results(self) -> dict[str, dict[str, BmCompResult]]:
+        return self._results
+
+    @property
+    def method(self) -> str:
+        return self._method
+
+    @property
+    def alpha(self) -> float:
+        return self._alpha
+
+    @property
+    def at_least_one_differs(self) -> bool:
+        return self._at_least_one_differs
 
     def getMetrics(self) -> tuple[str]:
-        return tuple(next(iter(self.results.values())).keys())
+        return tuple(next(iter(self._results.values())).keys())
 
     def getBenchmarkNames(self) -> tuple[str]:
-        return tuple(self.results.keys())
+        return tuple(self._results.keys())
 
     def areAllSame(self) -> bool:
         """Tests if all benchmarks over all metrics compare same"""
-        return all(["~" == cr.result for bm_res in self.results.values() for cr in bm_res.values()])
+        return all([
+            "~" == cr.result for bm_res in self._results.values() for cr in bm_res.values()
+        ])
 
     def areMetricsSame(self, metrics: Iterable[str]) -> bool:
         """Tests if all benchmarks over specified metrics compare same"""
-        return all(["~" == bm_res[m].result for bm_res in self.results.values() for m in metrics])
+        return all(["~" == bm_res[m].result for bm_res in self._results.values() for m in metrics])
+
+    @property
+    def pval_stats_available(self) -> bool:
+        return self._pval_stats is not None
+
+    def updatePvalStats(self, other: "CompareStatsResult") -> None:
+        """Update p-value statistics with results from another CompareStatsResult instance, which
+        must have been obtained for the same benchmarks, metrics and comparison settings."""
+        if self._pval_stats is None:
+            self._pval_stats = {
+                bm: {
+                    mname: {
+                        res: [] if res != cres.result else [cres.pvalue] for res in ("<", ">", "~")
+                    }
+                    for mname, cres in mdict.items()
+                }
+                for bm, mdict in self._results.items()
+            }
+        assert isinstance(other, CompareStatsResult)
+        assert other.method == self.method and other.alpha == self.alpha
+        assert self._results.keys() == other._results.keys()
+        for bm, omdict in other._results.items():
+            mdict = self._results[bm]
+            assert mdict.keys() == omdict.keys()
+            for mname, ocres in omdict.items():
+                assert ocres.size1 == mdict[mname].size1 and ocres.size2 == mdict[mname].size2
+                self._pval_stats[bm][mname][ocres.result].append(ocres.pvalue)
+
+    @property
+    def pval_stats(self) -> dict[str, dict[str, dict[str, list[float]]]]:
+        """Fetch p-value statistics, if they were created"""
+        if self._pval_stats is None:
+            raise ValueError("P-value statistics are not available!")
+        return self._pval_stats
 
 
 def poolBenchmarks(

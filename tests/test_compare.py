@@ -7,6 +7,45 @@ kMethods = tuple(bsc.kMethods.keys())
 kAlpha = bsc.kDefaultAlpha
 
 
+class TestCompareStatsResult(unittest.TestCase):
+    def test_updatePvalStats(self):
+        defargs = (kMethods[0], kAlpha, True)
+        cs0 = bsc.CompareStatsResult(
+            {
+                "b1": {
+                    "m1": bsc.BmCompResult("<", 0.01, 1, 2, kSize, kSize),
+                    "m2": bsc.BmCompResult("<", 0.02, 1, 2, kSize, kSize),
+                },
+                "b2": {"m1": bsc.BmCompResult("~", 0.3, 2, 2, kSize, kSize)},
+            },
+            *defargs,
+        )
+        cs1 = bsc.CompareStatsResult(
+            {
+                "b1": {
+                    "m1": bsc.BmCompResult("<", 0.02, 1, 2, kSize, kSize),
+                    "m2": bsc.BmCompResult("~", 0.2, 1.9, 2, kSize, kSize),
+                },
+                "b2": {"m1": bsc.BmCompResult(">", 0.03, 2, 1, kSize, kSize)},
+            },
+            *defargs,
+        )
+
+        self.assertEqual(cs0.pval_stats_available, False)
+        cs0.updatePvalStats(cs1)
+        self.assertEqual(cs0.pval_stats_available, True)
+        self.assertEqual(
+            cs0.pval_stats,
+            {
+                "b1": {
+                    "m1": {"<": [0.01, 0.02], ">": [], "~": []},
+                    "m2": {"<": [0.02], ">": [], "~": [0.2]},
+                },
+                "b2": {"m1": {"<": [], "~": [0.3], ">": [0.03]}},
+            },
+        )
+
+
 class TestComparisonMethods(unittest.TestCase):
     def _assertCommonExpectations(self, compareStats_result):
         res = compareStats_result.results

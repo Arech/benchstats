@@ -13,7 +13,7 @@ class TestQBench(unittest.TestCase):
     def test_canonical_form(self):
         f1 = lambda: time.sleep(0.001)  # noqa : E731
         f2 = lambda x: time.sleep(x)  # noqa : E731
-        r = qb.bench((f1, (f2, lambda: (0.01,))), iters=2, reps=1)
+        r = qb.bench((f1, (f2, lambda: (0.01,))), iters=2, reps=1, show_progress_each=0)
         np.testing.assert_allclose(
             r, np.array([[[0.001, 0.001]], [[0.01, 0.01]]]), rtol=0, atol=0.005
         )
@@ -33,6 +33,7 @@ class TestQBench(unittest.TestCase):
             reps=1,
             warmup=0,
             wait_arg_complete=wait_arg_complete,
+            show_progress_each=0,
         )
 
     def test_BenchmarkDescription(self):
@@ -140,7 +141,7 @@ class TestQBench(unittest.TestCase):
             self.assertEqual(exp_wait_func, wait_func_cnt)
             bench_cnt, args_cnt, cache_cnt, wait_arg_cnt, wait_func_cnt = 0, 0, 0, 0, 0
 
-        common_opts = {"iters": 3, "reps": 2, "warmup": 1}
+        common_opts = {"iters": 3, "reps": 2, "warmup": 1, "show_progress_each": 0}
 
         r = qb.bench(bench_func, **common_opts)
         np.testing.assert_array_equal(r.shape, (2, 3))
@@ -229,6 +230,81 @@ class TestQBench(unittest.TestCase):
             **common_opts,
         )
         check_reset_counters(7 * 2, 7 * 2, 7 * 2, 0, 7 + 14)
+
+    def test_showBench_with_delimiter(self):
+        def_prms = {"alt_delimiter": "|", "render_report": False}
+        nreps = 10
+        results = np.stack(
+            (
+                np.ones((nreps, 1)),
+                1.1 * np.ones((nreps, 1)),
+                2 * np.ones((nreps, 1)),
+                1.9 * np.ones((nreps, 1)),
+                3 * np.ones((nreps, 1)),
+                3 * np.ones((nreps, 1)),
+            ),
+            axis=0,
+        )
+        bm_names = ("alg0|A", "alg0|B", "alg1|A", "alg1|B", "alg2|A", "alg2|B")
+        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == sr.results["alg0 | A vs B"]["mean"].result
+        assert ">" == sr.results["alg1 | A vs B"]["mean"].result
+        assert "~" == sr.results["alg2 | A vs B"]["mean"].result
+
+    def test_showBench_one_name(self):
+        def_prms = {"render_report": False}
+        nreps = 10
+        results = np.stack(
+            (
+                np.ones((nreps, 1)),
+                1.1 * np.ones((nreps, 1)),
+                0.9 * np.ones((nreps, 1)),
+            ),
+            axis=0,
+        )
+        sr = qb.showBench(results, bm_names="code", **def_prms)
+        assert "<" == sr.results["code | 0 vs 1"]["mean"].result
+        assert ">" == sr.results["code | 1 vs 2"]["mean"].result
+        assert ">" == sr.results["code | 0 vs 2"]["mean"].result
+
+    def test_showBench_tuple(self):
+        def_prms = {"render_report": False}
+        nreps = 10
+        results = np.stack(
+            (
+                np.ones((nreps, 1)),
+                1.1 * np.ones((nreps, 1)),
+                2 * np.ones((nreps, 1)),
+                1.9 * np.ones((nreps, 1)),
+                3 * np.ones((nreps, 1)),
+                3 * np.ones((nreps, 1)),
+            ),
+            axis=0,
+        )
+        bm_names = ("alg0", "alg1", "alg2")
+        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == sr.results["alg0 | 0 vs 1"]["mean"].result
+        assert ">" == sr.results["alg1 | 0 vs 1"]["mean"].result
+        assert "~" == sr.results["alg2 | 0 vs 1"]["mean"].result
+
+    def test_showBench_pvalue_stats_bootstrap(self):
+        r = np.array([[[1, 3, 3], [1, 3, 3]], [[1, 2, 2], [1, 2, 2]]])
+        cr = qb.showBench(
+            r,
+            metrics={"min": np.min},
+            pvalue_stats_bootstrap=1,
+            pvalue_stats_bootstrap_seed=0,
+            alpha=0.499,
+            render_report=False,
+            console=None,
+        )
+        pvs = next(iter(next(iter(cr.pval_stats.values())).values()))
+        assert len(pvs) == 3
+        assert len(pvs["<"]) == 1
+        self.assertAlmostEqual(pvs["<"][0], 0.25)
+        assert len(pvs[">"]) == 0
+        assert len(pvs["~"]) == 1
+        assert pvs["~"][0] == 1.0
 
 
 if __name__ == "__main__":

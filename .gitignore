@@ -10,3 +10,4 @@ __pycache__
 !/docs/**/*.html
 /build
 /dist
+/_my/
