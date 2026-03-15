@@ -1,29 +1,49 @@
 # Statistical Testing for Benchmark Results Comparison
 
-`benchstats` is a Python 3.10+ package for performing comparison of benchmark results<sup>*</sup> with proper statistical tests and make a readable report on that. This lets remove guesswork and WAGs from interpretation of benchmarking results, and obtain a solid<sup>**</sup> answer to a question "is the algorithm implementation A is faster than the algorithm implementation B".
+`benchstats` is a Python 3.10+ package for performing comparison of benchmarking results<sup>*</sup>
+using proper statistical tests and making a readable report on that. This removes guesswork and WAGs
+from interpretation of benchmarking results, and gets a solid<sup>**</sup> answer to a question "is
+the algorithm implementation A is faster than the algorithm implementation B".
 
-`benchstats.qbench` module contains helper methods for simple benchmarking of Python callables. See
-a corresponding section at the end of this README for details.
+Module has a CLI support to operate on data files, and a `benchstats.qbench` submodule has helper
+methods for benchmarking of Python callables (see a corresponding section at the end of this README
+for the latter).
 
-Code that read input data, perform statistical testing and then visualize results is coupled only by a shared data types and it could easily be used separately if needed (for example, to build a performance regression testing pipeline).
+Code that reads input data, perform statistical testing and then visualize results is coupled only by
+shared data types, so it could easily be used separately if needed (for example, to build a
+performance regression testing pipeline).
 
 <sup>*</sup> - while currently `benchstats` has a built-in parser only for [Google Benchmark](https://github.com/google/benchmark)-produced `.json` files, it's very simple to make and use a parser for any other data source as long as you know how to interpret it. See a "Custom data sources" paragraph and `--files_parser` CLI argument below.
 
-<sup>**</sup> - the solidness of the answer still depends heavily on how well the underlying hardware and OS are quiesced, and how inherently non-deterministic the algorithms under benchmark are. It isn't covered here how to achieve these benchmarking basics, however, `benchstats` does have a mode to alleviate testing if the benchmarking machine is stable enough, see `--expect_same` CLI argument below.
+<sup>**</sup> - the solidness of the answer still depends on how well the underlying hardware and OS
+are quiesced, and how inherently non-deterministic the algorithms under benchmark are. It isn't
+covered here how to achieve these benchmarking basics, however, `benchstats` does have a couple of
+features to alleviate testing if the benchmarking machine is stable enough, see `--expect_same` CLI
+argument below. If individual latencies of each function under benchmark are available, it's highly recommended to use `benchstats.qbench.showBench()` method with sufficiently large
+`pvalue_stats_bootstrap` parameter to validate very important execution order independence assumption.
 
 ## Rationale: why should you even bother to use statistical tests to compare benchmarking results?
 
+*/\* First of all, let's agree that we're trying to detect rather small differences in latencies.
+If code A runs an order of magnitude faster than code B, things are way simpler. \*/*
+
 \- *Really, why bother? Can't you just measure and compare the run time of code variant A to the run time of code variant B?*
 
-Well, you can, but to see that this is meaningless, just run your benchmark several times. The numbers will never be the same, they'll fluctuate. Which particular number should you use for the comparison then?
+Unfortunately, this is usually meaningless. Just run the benchmark several times. The numbers will
+fluctuate, sometimes wildly. Which particular number should you use for the comparison now?
 
 \- *Ok, then why not take an average number over a certain amount of benchmark executions and compare these averages?*
 
-If you repeat that experiment several times, you'll see this suffers from the very same problem as above - the number you get still fluctuates, even though usually it fluctuates less. You'll obtain two such numbers for benchmark alternatives and one will be bigger then the other. How would you know that the difference is large enough to be attributed to real differences in the code instead of a random non-determinism?
+This also suffers from the very same problem as above - the numbers from different re-runs will still fluctuate, even though a bit less. And how do you know if the difference is large enough to be attributed to real differences in the code instead of a random non-determinism?
 
 \- *Ah, but that's simple! In addition to the average value, also compute a standard deviation and then if averages are within 1-2-whatever standard deviations apart one from the other, declare the results aren't different. Otherwise one is significantly less or greater than the other. If you want to be extra sure, go with a "5 sigma golden standard" just like they do it in Physics! Google Benchmark even computes standard deviation on its own when you run benchmark with repetitions! Easy!*
 
-... and even more wrong than you'd be, should you just compare two random measurements directly. While you certainly may compute [standard deviation](https://en.wikipedia.org/wiki/Standard_deviation) for any sample, it's unclear if it make sense to do so: standard deviation applies only to distributions with a finite variance. Certain distributions, like [Pareto](https://en.wikipedia.org/wiki/Pareto_distribution), might not not have a finite variance at all. If you ever plotted benchmarked latencies, you'd immediately notice that it looks much more as a Pareto, than a [Normal/Gaussian distribution](https://en.wikipedia.org/wiki/Normal_distribution). Measurements you get when benchmarking are anything, but normally distributed, and a value computed as their "standard deviation" most likely don't describe what it's meant to describe - a real dispersion of measurements around its mean.
+... and not a tiny bit more correct than comparing two random measurements directly. While one can
+certainly compute [standard deviation](https://en.wikipedia.org/wiki/Standard_deviation) for any
+sample, it's unclear if it make sense to do so: (a) standard deviation applies only to distributions
+with a finite variance, and (b) it has meaningful interpretation only for very few specific
+distributions. Certain distributions, like [Pareto](https://en.wikipedia.org/wiki/Pareto_distribution),
+might not not have finite variance at all. If you ever plotted benchmarked latencies, you'd immediately notice that it looks much more as a Pareto, than a [Normal/Gaussian distribution](https://en.wikipedia.org/wiki/Normal_distribution). Measurements you get when benchmarking are anything, but normally distributed, and a value computed as their "standard deviation" don't describe what it's meant to describe - a real dispersion of measurements around its mean.
 
 None of above is a good idea. But what is? Let's step back and think what do we want to learn from comparing benchmark results? We want to learn if a code variant A is faster, i.e. have smaller run time, than a code variant B. But we can't just measure their run times and compare them directly, because each measurement is essentially a random variable. Even if algorithms are perfectly deterministic, the hardware inherently isn't, so instead of measuring a run time precisely, we always sample a random value from some unknown distribution instead. Hence, the only correct way to go is to sample a lot of these random variables for distributions A and B, and then compare these sets of samples against each other. If it's more likely to find a smaller value in the set A than in the set B, then A is faster than B.
 

@@ -289,22 +289,28 @@ class TestQBench(unittest.TestCase):
 
     def test_showBench_pvalue_stats_bootstrap(self):
         r = np.array([[[1, 3, 3], [1, 3, 3]], [[1, 2, 2], [1, 2, 2]]])
-        cr = qb.showBench(
-            r,
+        cmnargs = dict(
             metrics={"min": np.min},
-            pvalue_stats_bootstrap=1,
-            pvalue_stats_bootstrap_seed=0,
+            pvalue_stats_bootstrap_seed=3,
             alpha=0.499,
             render_report=False,
             console=None,
         )
-        pvs = next(iter(next(iter(cr.pval_stats.values())).values()))
-        assert len(pvs) == 3
-        assert len(pvs["<"]) == 1
-        self.assertAlmostEqual(pvs["<"][0], 0.25)
-        assert len(pvs[">"]) == 0
-        assert len(pvs["~"]) == 1
-        assert pvs["~"][0] == 1.0
+        # seed is chosen to modify the first bootstrap result and produce the same second result
+
+        def test_pvs(pvs, same_len):
+            assert len(pvs) == 3
+            assert len(pvs[">"]) == 1
+            self.assertAlmostEqual(pvs[">"][0], 0.3986798203636032)
+            assert len(pvs["<"]) == 0
+            assert len(pvs["~"]) == same_len
+            assert all(pvs["~"][i] == 1.0 for i in range(same_len))
+
+        cr = qb.showBench(r, pvalue_stats_bootstrap=1, **cmnargs)
+        test_pvs(next(iter(next(iter(cr.pval_stats.values())).values())), 1)
+
+        cr = qb.showBench(r, pvalue_stats_bootstrap=2, **cmnargs)
+        test_pvs(next(iter(next(iter(cr.pval_stats.values())).values())), 2)
 
 
 if __name__ == "__main__":

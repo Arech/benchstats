@@ -6,7 +6,6 @@ of Python callables. Some parts, however, could be reused outside of Python benc
 import argparse
 from collections import namedtuple
 from collections.abc import Callable, Iterable
-from copy import deepcopy
 import itertools
 import inspect
 import numpy as np
@@ -561,8 +560,11 @@ def showBench(
                 kwCompareStats_and_renderArgs["debug_log"] = False
     assert console is None or isinstance(console, LoggingConsole)
 
-    if results.ndim == 2:
-        results = np.expand_dims(results, axis=0)
+    if pvalue_stats_bootstrap > 0 or results.ndim == 2:
+        results = results.copy()
+        if results.ndim == 2:
+            results = np.expand_dims(results, axis=0)
+
     assert results.ndim == 3, "results must be a 3D numpy array."
 
     compStats_args, render_args = _splitCompareStats_and_renderArgs(
@@ -582,9 +584,8 @@ def showBench(
     if pvalue_stats_bootstrap > 0:
         rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
         reps, iters = results.shape[1:]
-        resd = deepcopy(resd)  # we must copy views since we shouldn't modify the original data
         for i in range(pvalue_stats_bootstrap):
-            for k, res in resd.items():
+            for _, res in resd.items():
                 rng.shuffle(res.reshape(-1))
                 assert res.shape == (reps, iters)
             sg = _applyMetrics(resd)
