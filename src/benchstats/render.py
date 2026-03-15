@@ -3,7 +3,6 @@
 from collections.abc import Iterable
 import numpy as np
 import rich
-import rich.style
 from rich.text import Text
 import math
 
@@ -143,6 +142,7 @@ def renderComparisonResults(
     show_percent_diff: bool = True,  # if true, also show percent difference between values.
     # Value 0 is always the base of comparison, so the diff is always (value1 - value0) / value0.
     # Curly braces are used to mark the percent difference in the output.
+    show_pvalue_stats: bool = True,  # show pvalue statistics, if present
 ) -> None:
     if console is None:
         console = LoggingConsole(emoji=False, highlight=False)
@@ -182,6 +182,17 @@ def renderComparisonResults(
                 else None
             )
     assert title is None or isinstance(title, str)
+
+    if show_pvalue_stats:
+        if not comp_res.pval_stats_available:
+            show_pvalue_stats = False
+            console.debug("P-value statistics are not available, disabling show_pvalue_stats")
+        else:
+            pvs_iters = None
+            pvs_styles = [  # indexed by is_main
+                [_getFmt(f"metric_{fld}_diff" if i < 2 else f"metric_{fld}_same") for i in range(3)]
+                for fld in ("scnd", "main")
+            ]
 
     delim_space = "\n" if multiline else " "
 
@@ -276,7 +287,7 @@ def renderComparisonResults(
 
             if show_percent_diff:
                 percent_diff = (repr_value1 - repr_value0) * 100.0 / repr_value0
-                txt.append(f" {{{percent_diff:+.1f}%}}")
+                txt.append(f" {{{percent_diff:+.1f}%}}", style=comp_res_style)
 
             if sample_stats is not None:
                 assert isinstance(res.val_set0, np.ndarray), "Need raw dataset to show sample_stats"
@@ -319,13 +330,34 @@ def renderComparisonResults(
                 txt.append(f"{delim_space}p={str_pval}{next_char}", style=comp_res_style)
             else:
                 txt.append(
-                    delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),
+                    delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),  # noqa:E712
                     style=comp_res_style,
                 )
 
             # sample sizes
             if show_sample_sizes:
                 txt.append(f"({res.size1} vs {res.size2})", style=comp_res_style)
+
+            if show_pvalue_stats:
+                pval_stats = comp_res.pval_stats[bm_name][metric_name]
+                assert len(pval_stats) == 3, "P-value statistics must have 3 keys: <, >, ~"
+                if pvs_iters is None:
+                    pvs_iters = sum(len(pval_stats[k]) for k in pval_stats.keys())
+                pvs = tuple(
+                    Text(
+                        f"{k}:{len(lst) * 100 / pvs_iters:.1f}%({len(lst)})",
+                        style=pvs_styles[is_main][i],
+                    )
+                    for i, (k, lst) in enumerate(pval_stats.items())
+                    if len(lst) > 0
+                )
+                # rich doesn't seem to have a notion of default color or "no style", so we have to
+                # use "white" assuming it's the default
+                txt.append(f"{delim_space}pvs({pvs_iters}) ", style="white")
+                for i, stxt in enumerate(pvs):
+                    txt.append(stxt)
+                    if i < len(pvs) - 1:
+                        txt.append(", ", style="white")
 
             cols[idx] = txt
 

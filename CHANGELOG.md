@@ -1,9 +1,26 @@
+# 3.2.0
+- `qbench.showBench()` now supports bootstrapping p-value statistics with `pvalue_stats_bootstrap`
+parameter. This feature is super useful for sanity checking of benchmark stability and
+reproducibility. If it reports results inconsistent with the main check, it's a strong indication
+that comparison results are heavily influenced by the order of benchmark function invocations or
+order in which benchmark results appears in the results array, which violates independence
+assumption of the statistical tests.
+- `render.renderComparisonResults()` were augmented to report summary statistics of p-value
+bootstrapping results: number of comparisons as `<`, `>` and `~` for the whole bootstrapped set.
+
 # 3.1.0
-- **Enhance qbench benchmarking core**: Refactor `bench()` to support richer benchmark descriptions (argument generators, cache clearing, async wait hooks), configurable batching vs. per-iteration timing, randomization of function order, and etc.
-- **Add benchmark registration and CLI support**: Introduce `registerBenchmark`, `getRegisteredBenchmarkSetNames`, `getRegisteredBenchmarks`, and `makeArgumentParser()` so benchmark sets can be registered, selected by name, and run from a command-line interface with various options.
-- **Bugfix**: how benchmarks are matched one against the other: `poolBenchmarks()` now splits benchmark names using the longest common prefix instead of the shortest.
+- **Enhance qbench benchmarking core**: Refactor `bench()` to support richer benchmark descriptions
+(argument generators, cache clearing, async wait hooks), configurable batching vs. per-iteration
+timing, randomization of function order, and etc.
+- **Add benchmark registration and CLI support**: Introduce `registerBenchmark`,
+`getRegisteredBenchmarkSetNames`, `getRegisteredBenchmarks`, and `makeArgumentParser()` so benchmark
+sets can be registered, selected by name, and run from a command-line interface with various options.
+- **Bugfix**: how benchmarks are matched one against the other: `poolBenchmarks()` now splits
+benchmark names using the longest common prefix instead of the shortest.
 - **Bugfix** `LoggingConsole.print()` so log level prefixes render with correct brackets.
-- **Add tests for qbench**: Introduce `tests/test_qbench.py` covering canonical bench result shapes, correct placement of `wait_arg_complete`, and `BenchmarkDescription` initialization and `from_iterable()` behavior.
+- **Add tests for qbench**: Introduce `tests/test_qbench.py` covering canonical bench result shapes,
+correct placement of `wait_arg_complete`, and `BenchmarkDescription` initialization and
+`from_iterable()` behavior.
 
 **Potentially breaking changes**:
 - To prevent mistakes, made `showBench()` and `benchmark()` now accept most of arguments at kwargs only.
