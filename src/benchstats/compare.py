@@ -17,6 +17,10 @@ kMethods = {
         "name": "Mann-Whitney U test",
         "url": "https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test",
     },
+    "ttest_ind": {
+        "name": "Student's t-test",
+        "url": "https://en.wikipedia.org/wiki/T-test",
+    },
 }
 
 kDefaultAlpha = 0.001
