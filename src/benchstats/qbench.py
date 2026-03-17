@@ -35,7 +35,9 @@ def _getOptionalArgs(func) -> dict[str, Any]:
 # support for combined arguments of showBench()
 _g_compareStats_args = frozenset(_getOptionalArgs(compareStats).keys())
 _g_renderComparisonResults_args = frozenset(_getOptionalArgs(renderComparisonResults).keys())
-_g_joint_args = _g_compareStats_args.intersection(_g_renderComparisonResults_args)
+_g_both_compStats_renderCompRes_args = _g_compareStats_args.intersection(
+    _g_renderComparisonResults_args
+)
 
 
 ################################################################################
@@ -252,8 +254,8 @@ def bench(
         return, and performing all necessary HW & other cache clearing necessary. Return value is
         ignored. This parameter sets a default `clear_cache_func` for each of `funcs` if
         `clear_cache_func` isn't provided
-    - show_progress_each - if an positive integer, will show progress bars and update each that
-        number of iterations
+    - show_progress_each - if it's a positive integer, show progress bars and update them each
+        that many iterations.
 
     Returns:
         np.ndarray: A 3D numpy array of runtimes in seconds with shape (n_funcs, reps, iters). Or,
@@ -466,7 +468,7 @@ def _splitCompareStats_and_renderArgs(
     }
     unknown_args = {}
     for k, v in kwCompareStats_and_renderArgs.items():
-        if k in _g_joint_args:
+        if k in _g_both_compStats_renderCompRes_args:
             compareStats_args[k] = v
             renderComparisonResults_args[k] = v
         elif k in _g_compareStats_args:
@@ -499,8 +501,9 @@ def showBench(
     alt_delimiter: str | None = None,
     metrics: dict = {"min": np.min, "mean": np.mean},
     console: None | LoggingConsole = None,
-    pvalue_stats_bootstrap: int = 1000,
+    pvalue_stats_bootstrap: int = 100,
     pvalue_stats_bootstrap_seed: Any = None,
+    show_progress_each: int = 1,
     render_report: bool = True,
     **kwCompareStats_and_renderArgs,
 ) -> CompareStatsResult:
@@ -531,7 +534,7 @@ def showBench(
         aggregate data from individual benchmark iterations.
     - console (LoggingConsole, optional): A console object to use for logging. If None and
         render_report is True, a new LoggingConsole object will be created.
-    - pvalue_stats_bootstrap (int, default 1000): If positive, will bootstrap p-value statistics by
+    - pvalue_stats_bootstrap (int, default 100): If positive, will bootstrap p-value statistics by
         randomly reshuffling the results array for each benchmark function and computing p-values
         for each reshuffling using the specified number of bootstrap iterations.
         Assumes that each benchmark function invocation in any moment of time has no dependency on
@@ -541,8 +544,12 @@ def showBench(
         comparison results are heavily influenced by the order of benchmark function invocations or
         order in which benchmark results appears in the results array, which violates independence
         assumption of the statistical tests.
+        Note that large values like 1000 are computationally expensive, but provide more stable
+        results thanks to a better coverage.
     - pvalue_stats_bootstrap_seed (Any, default None): if pvalue bootstrapping is enabled, this seed
         will initialize the random number generator for bootstrapping.
+    - show_progress_each - if p-value bootstrapping is enabled and it's a positive integer,
+        show progress bars and update them each that many bootstrapping iterations.
     - render_report (bool, True by default): If False, only returns CompareStatsResult object,
          but doesn't print the report.
     - kwCompareStats_and_renderArgs: Any optional arguments of the compareStats()
@@ -562,6 +569,7 @@ def showBench(
 
     if pvalue_stats_bootstrap > 0 or results.ndim == 2:
         results = results.copy()
+        show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
         if results.ndim == 2:
             results = np.expand_dims(results, axis=0)
 
@@ -584,6 +592,12 @@ def showBench(
     if pvalue_stats_bootstrap > 0:
         rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
         reps, iters = results.shape[1:]
+
+        if show_progress:
+            progress = Progress(transient=True)
+            task = progress.add_task("P-value bootstrapping", total=pvalue_stats_bootstrap)
+            progress.start()
+
         for i in range(pvalue_stats_bootstrap):
             for _, res in resd.items():
                 rng.shuffle(res.reshape(-1))
@@ -591,6 +605,12 @@ def showBench(
             sg = _applyMetrics(resd)
             cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **compStats_args)
             sr.updatePvalStats(cs)
+
+            if show_progress and i % show_progress_each == 0:
+                progress.update(task, completed=i)
+
+        if show_progress:
+            progress.stop()
 
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
@@ -601,7 +621,7 @@ _g_bench_defaults = _getOptionalArgs(bench)
 _g_bench_args = frozenset(_g_bench_defaults.keys())
 _g_showBench_defaults = _getOptionalArgs(showBench)
 _g_showBench_args = frozenset(_g_showBench_defaults.keys())
-assert not (_g_bench_args & _g_showBench_args)
+_g_both_bench_showBench_args = _g_bench_args.intersection(_g_showBench_args)
 
 
 def benchmark(funcs: tuple | list, **kwargs) -> tuple[CompareStatsResult, np.ndarray]:
@@ -618,7 +638,10 @@ def benchmark(funcs: tuple | list, **kwargs) -> tuple[CompareStatsResult, np.nda
     show_args = {}
     compare_and_render_args = {}
     for k, v in kwargs.items():
-        if k in _g_bench_args:
+        if k in _g_both_bench_showBench_args:
+            bench_args[k] = v
+            show_args[k] = v
+        elif k in _g_bench_args:
             bench_args[k] = v
         elif k in _g_showBench_args:
             show_args[k] = v
