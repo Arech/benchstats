@@ -499,7 +499,7 @@ def showBench(
     *,
     bm_names: tuple | list | str = "code",
     alt_delimiter: str | None = None,
-    metrics: dict = {"min": np.min, "mean": np.mean},
+    metrics: dict = {"mean": np.mean, "min": np.min},
     console: None | LoggingConsole = None,
     pvalue_stats_bootstrap: int = 100,
     pvalue_stats_bootstrap_seed: Any = None,

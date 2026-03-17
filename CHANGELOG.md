@@ -1,3 +1,7 @@
+# 3.3.1
+- Changed the order of default metrics of `qbench.showBench()` to make `mean` the leading metric, as
+it's typically the most correct one.
+
 # 3.3.0
 - Added a possibility to display progress bar for p-value bootstrapping
 - Reduced default value for `qbench.showBench(pvalue_stats_bootstrap=)` to just 100.
