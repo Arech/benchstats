@@ -1,3 +1,7 @@
+# 3.3.0
+- Added a possibility to display progress bar for p-value bootstrapping
+- Reduced default value for `qbench.showBench(pvalue_stats_bootstrap=)` to just 100.
+
 # 3.2.0
 - `qbench.showBench()` now supports bootstrapping p-value statistics with `pvalue_stats_bootstrap`
 parameter. This feature is super useful for sanity checking of benchmark stability and
