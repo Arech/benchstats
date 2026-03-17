@@ -1,6 +1,7 @@
-# 3.3.1
+# 3.3.1-.2
 - Changed the order of default metrics of `qbench.showBench()` to make `mean` the leading metric, as
 it's typically the most correct one.
+- Added Student's t-test support, `method='ttest_ind'`
 
 # 3.3.0
 - Added a possibility to display progress bar for p-value bootstrapping
