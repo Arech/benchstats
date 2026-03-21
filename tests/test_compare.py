@@ -109,4 +109,7 @@ class TestComparisonMethods(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import sys
+    import pytest
+
+    sys.exit(pytest.main(sys.argv))
