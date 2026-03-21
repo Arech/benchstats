@@ -1,3 +1,9 @@
+# 3.3.3
+- breaking change, though unlikely important for anyone: due to T-test also being affected by
+bad date, renamed `compareStats()` parameter `brunnermunzel_workaround` to `edge_cases_workaround`
+and extended its effect on t-test.
+- Fix `_at_least_one_differs` flag handling in `CompareStatsResult::updatePvalStats()`.
+
 # 3.3.1-.2
 - Changed the order of default metrics of `qbench.showBench()` to make `mean` the leading metric, as
 it's typically the most correct one.

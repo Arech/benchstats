@@ -1,8 +1,6 @@
-import sys
 from typing import Iterable
 import unittest
 import numpy as np
-import pytest
 import time
 import traceback
 
@@ -232,7 +230,7 @@ class TestQBench(unittest.TestCase):
         check_reset_counters(7 * 2, 7 * 2, 7 * 2, 0, 7 + 14)
 
     def test_showBench_with_delimiter(self):
-        def_prms = {"alt_delimiter": "|", "render_report": False}
+        def_prms = {"alt_delimiter": "|", "render_report": False, "show_progress_each": 0}
         nreps = 10
         results = np.stack(
             (
@@ -252,7 +250,7 @@ class TestQBench(unittest.TestCase):
         assert "~" == sr.results["alg2 | A vs B"]["mean"].result
 
     def test_showBench_one_name(self):
-        def_prms = {"render_report": False}
+        def_prms = {"render_report": False, "show_progress_each": 0}
         nreps = 10
         results = np.stack(
             (
@@ -268,7 +266,7 @@ class TestQBench(unittest.TestCase):
         assert ">" == sr.results["code | 0 vs 2"]["mean"].result
 
     def test_showBench_tuple(self):
-        def_prms = {"render_report": False}
+        def_prms = {"render_report": False, "show_progress_each": 0}
         nreps = 10
         results = np.stack(
             (
@@ -295,6 +293,7 @@ class TestQBench(unittest.TestCase):
             alpha=0.499,
             render_report=False,
             console=None,
+            show_progress_each=0,
         )
         # seed is chosen to modify the first bootstrap result and produce the same second result
 
@@ -306,12 +305,20 @@ class TestQBench(unittest.TestCase):
             assert len(pvs["~"]) == same_len
             assert all(pvs["~"][i] == 1.0 for i in range(same_len))
 
+        cr = qb.showBench(r, pvalue_stats_bootstrap=0, **cmnargs)
+        assert not cr.at_least_one_differs
+
         cr = qb.showBench(r, pvalue_stats_bootstrap=1, **cmnargs)
+        assert cr.at_least_one_differs
         test_pvs(next(iter(next(iter(cr.pval_stats.values())).values())), 1)
 
         cr = qb.showBench(r, pvalue_stats_bootstrap=2, **cmnargs)
+        assert cr.at_least_one_differs
         test_pvs(next(iter(next(iter(cr.pval_stats.values())).values())), 2)
 
 
 if __name__ == "__main__":
+    import sys
+    import pytest
+
     sys.exit(pytest.main(sys.argv))

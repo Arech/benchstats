@@ -162,6 +162,7 @@ class CompareStatsResult:
         assert isinstance(other, CompareStatsResult)
         assert other.method == self.method and other.alpha == self.alpha
         assert self._results.keys() == other._results.keys()
+        self._at_least_one_differs = self._at_least_one_differs or other._at_least_one_differs
         for bm, omdict in other._results.items():
             mdict = self._results[bm]
             assert mdict.keys() == omdict.keys()
@@ -249,7 +250,7 @@ def compareStats(
     main_metrics: None | list[str] | tuple[str] = None,
     debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
-    brunnermunzel_workaround: None | bool = None,
+    edge_cases_workaround: None | bool = None,
 ) -> CompareStatsResult:
     """Perform comparison for statistical significance of benchmark results using a chosen
     statistical method.
@@ -281,21 +282,22 @@ def compareStats(
     `store_sets` is a bool, True will make store whole corresponding dataset into a BmCompResult
     instead of a mean of the set.
 
-    `brunnermunzel_workaround`: Formally speaking, Brunner Munzel test method is "underspecified"
+    `edge_cases_workaround`: Formally speaking, Brunner Munzel test method is "underspecified"
     in a sense that by design it doesn't handle a case of non-intersecting sample sets, or sets
     consisting of the same single element (https://aakinshin.net/posts/brunner-munzel-corner-case/).
     scipy.stats.brunnermunzel() implementation at least in versions 1.10-1.15.2 directly follows the
     words of the original paper and doesn't introduce handling for that cases, which causes warnings
     and nans to appear in results. IMO from an engineering point of view this is more like just a
-    bug (https://github.com/scipy/scipy/issues/22664). `brunnermunzel_workaround` is a flag to
-    handle it: value of None handles the bug only for method == 'brunnermunzel', a bool otherwise
-    controls whether to handle the bug irrespective of the method used (this might give different
-    pvalues for other tests, but this shouldn't affect inference results unless alpha threshold
-    value is too wild). It should be noted that for small sample sizes (under 10 elements in any of
+    bug (https://github.com/scipy/scipy/issues/22664). The same issue also applies to Student's
+    t-test. `edge_cases_workaround` is a flag to handle it: value of None handles the bug only for
+    affected methods, a bool otherwise controls whether to handle the bug irrespective of the method
+    used (this might give different pvalues for other tests, but this shouldn't affect inference
+    results unless alpha threshold value is too wild).
+    It should be noted that for small sample sizes (under 10 elements in any of
     sample sets) this most certainly leads to a wrong p-value result that underestimate a
     probability of error. However, with 10, or preferably more, sample set sizes, this should be
     negligible.
-    While brunnermunzel_workaround allows to disable the workaround, I doubt it has any practical
+    While edge_cases_workaround allows to disable the workaround, I doubt it has any practical
     value in the context of benchmark results comparison.
 
     Returns an instance of CompareStatsResult class
@@ -306,7 +308,7 @@ def compareStats(
     assert isinstance(sg0, dict) and (isinstance(sg1, dict) or (with_alternatives and sg1 is None))
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
-    assert brunnermunzel_workaround is None or isinstance(brunnermunzel_workaround, bool)
+    assert edge_cases_workaround is None or isinstance(edge_cases_workaround, bool)
     assert main_metrics is None or isinstance(main_metrics, (list, tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
@@ -317,8 +319,8 @@ def compareStats(
         logger = debug_log
         debug_log = True
 
-    if brunnermunzel_workaround is None:
-        brunnermunzel_workaround = method == "brunnermunzel"
+    if edge_cases_workaround is None:
+        edge_cases_workaround = (method in ("brunnermunzel", "ttest_ind"))
 
     def warn(*args, **kwargs):
         if debug_log:
@@ -330,11 +332,11 @@ def compareStats(
 
     def computePValues(s0, s1):
         """Computes and return pvalues of s0 being stochastically less or greater than s1"""
-        if brunnermunzel_workaround:
+        if edge_cases_workaround:
             # test for edge cases that brunnermunzel can't handle properly
             mn0, mx0, mn1, mx1 = np.min(s0), np.max(s0), np.min(s1), np.max(s1)
             assert np.all(np.isfinite([mn0, mx0, mn1, mx1]))  # sanity check, more asserts below
-            all_eq = np.all([mn0 == mx0, mn0 == mn1, mn0 == mx1])
+            all_eq = all([mn0 == mx0, mn0 == mn1, mn0 == mx1])
             all_less, all_greater = mx0 < mn1, mn0 > mx1
 
             if all_eq:
@@ -348,7 +350,7 @@ def compareStats(
         res_greater = stat_func(s0, s1, alternative="greater")
 
         less_pvalue, greater_pvalue = res_less.pvalue, res_greater.pvalue
-        if brunnermunzel_workaround:
+        if edge_cases_workaround:
             assert np.all(np.isfinite([less_pvalue, greater_pvalue]))
 
         return less_pvalue, greater_pvalue
