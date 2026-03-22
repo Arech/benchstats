@@ -244,10 +244,11 @@ class TestQBench(unittest.TestCase):
             axis=0,
         )
         bm_names = ("alg0|A", "alg0|B", "alg1|A", "alg1|B", "alg2|A", "alg2|B")
-        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
-        assert "<" == sr.results["alg0 | A vs B"]["mean"].result
-        assert ">" == sr.results["alg1 | A vs B"]["mean"].result
-        assert "~" == sr.results["alg2 | A vs B"]["mean"].result
+        cr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == cr.results["alg0 | A vs B"]["mean"].result
+        assert ">" == cr.results["alg1 | A vs B"]["mean"].result
+        assert "~" == cr.results["alg2 | A vs B"]["mean"].result
+        assert cr.at_least_one_differs
 
     def test_showBench_one_name(self):
         def_prms = {"render_report": False, "show_progress_each": 0}
@@ -260,10 +261,11 @@ class TestQBench(unittest.TestCase):
             ),
             axis=0,
         )
-        sr = qb.showBench(results, bm_names="code", **def_prms)
-        assert "<" == sr.results["code | 0 vs 1"]["mean"].result
-        assert ">" == sr.results["code | 1 vs 2"]["mean"].result
-        assert ">" == sr.results["code | 0 vs 2"]["mean"].result
+        cr = qb.showBench(results, bm_names="code", **def_prms)
+        assert "<" == cr.results["code | 0 vs 1"]["mean"].result
+        assert ">" == cr.results["code | 1 vs 2"]["mean"].result
+        assert ">" == cr.results["code | 0 vs 2"]["mean"].result
+        assert cr.at_least_one_differs
 
     def test_showBench_tuple(self):
         def_prms = {"render_report": False, "show_progress_each": 0}
@@ -280,10 +282,11 @@ class TestQBench(unittest.TestCase):
             axis=0,
         )
         bm_names = ("alg0", "alg1", "alg2")
-        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
-        assert "<" == sr.results["alg0 | 0 vs 1"]["mean"].result
-        assert ">" == sr.results["alg1 | 0 vs 1"]["mean"].result
-        assert "~" == sr.results["alg2 | 0 vs 1"]["mean"].result
+        cr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == cr.results["alg0 | 0 vs 1"]["mean"].result
+        assert ">" == cr.results["alg1 | 0 vs 1"]["mean"].result
+        assert "~" == cr.results["alg2 | 0 vs 1"]["mean"].result
+        assert cr.at_least_one_differs
 
     def test_showBench_pvalue_stats_bootstrap(self):
         r = np.array([[[1, 3, 3], [1, 3, 3]], [[1, 2, 2], [1, 2, 2]]])

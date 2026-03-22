@@ -124,6 +124,9 @@ class CompareStatsResult:
 
     @property
     def at_least_one_differs(self) -> bool:
+        """Returns True if at least one benchmark/metric comparison result is different from "~"
+        (no difference) for any metric from `main_metrics` list (or for any metric if `main_metrics`
+        is None)"""
         return self._at_least_one_differs
 
     def getMetrics(self) -> tuple[str]:
