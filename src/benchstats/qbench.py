@@ -362,7 +362,7 @@ def bench2(func1, func2, **kwargs):
 
 def resultsToDict(
     results: np.ndarray, bm_names: tuple | list | str = "code", alt_delimiter: str | None = None
-) -> tuple[dict[str, np.ndarray], str]:
+) -> tuple[dict[str, np.ndarray], str, dict[str, str]]:
     """Store benchmark results in a dictionary benchmark_name -> benchmark_results
 
     Arguments:
@@ -385,11 +385,13 @@ def resultsToDict(
                 of functions benchmarked (results.shape[0]), where each string is parsed
                 according to the expected format: "<common_name>{alt_delimiter}<alternative_name>".
                 Benchmarks with the same "<common_name>" are compared pairwise.
-    Returns a tuple of 2 objects:
+    Returns a tuple of 3 objects:
         dict[str, np.ndarray]: A dictionary mapping benchmark names to benchmark results as 2D
             matrix of shape (reps, iters). Note that matricies returned are views into the original
             results array, so modifying them will modify the original results array as well.
         str - possibly modified alt_delimiter value
+        dict[str, int] - mapping of created benchmark names to indices of benchmark data in the
+            results array
     """
     if results.ndim == 2:
         results = np.expand_dims(results, axis=0)
@@ -406,13 +408,17 @@ def resultsToDict(
     n_names = len(bm_names)
     assert n_names > 0, bm_names_err
 
-    def addBenchmark(sg: dict, bm_name: str, b_idx: int):
+    sg = {}
+    bm_idxs = {}
+
+    def addBenchmark(bm_name: str, b_idx: int):
+        nonlocal sg
         assert bm_name not in sg, (
             f"Duplicate benchmark name '{bm_name}' found. Please provide unique names."
         )
         sg[bm_name] = results[b_idx, :, :]  # .copy()
+        bm_idxs[bm_name] = b_idx
 
-    sg = {}
     if alt_delimiter is None:
         if n_funcs % n_names != 0:
             raise ValueError(
@@ -423,8 +429,8 @@ def resultsToDict(
         alt_delimiter = "|"
 
         if n_funcs_per_bm <= 1:
-            addBenchmark(sg, f"{bm_names[0]}{alt_delimiter}0", 0)
-            addBenchmark(sg, f"{bm_names[0]}{alt_delimiter}same", 0)
+            addBenchmark(f"{bm_names[0]}{alt_delimiter}0", 0)
+            addBenchmark(f"{bm_names[0]}{alt_delimiter}same", 0)
         else:
             combination_set = list(itertools.combinations(range(n_funcs_per_bm), 2))
             func_group_idx = 0
@@ -432,10 +438,10 @@ def resultsToDict(
                 for cs in combination_set:
                     n1 = f"{bm_name}{alt_delimiter}{cs[0]}"
                     if n1 not in sg:
-                        addBenchmark(sg, n1, func_group_idx + cs[0])
+                        addBenchmark(n1, func_group_idx + cs[0])
                     n2 = f"{bm_name}{alt_delimiter}{cs[1]}"
                     if n2 not in sg:
-                        addBenchmark(sg, n2, func_group_idx + cs[1])
+                        addBenchmark(n2, func_group_idx + cs[1])
                 func_group_idx += n_funcs_per_bm
 
     else:
@@ -453,9 +459,9 @@ def resultsToDict(
                 raise ValueError(
                     f"Duplicate benchmark name '{bm_name}' found. Please provide unique names."
                 )
-            addBenchmark(sg, bm_name, b_idx)
+            addBenchmark(bm_name, b_idx)
 
-    return sg, alt_delimiter
+    return sg, alt_delimiter, bm_idxs
 
 
 def _splitCompareStats_and_renderArgs(
@@ -578,7 +584,7 @@ def showBench(
     compStats_args, render_args = _splitCompareStats_and_renderArgs(
         kwCompareStats_and_renderArgs, console
     )
-    resd, alt_delimiter = resultsToDict(results, bm_names, alt_delimiter)
+    resd, alt_delimiter, bm_idxs = resultsToDict(results, bm_names, alt_delimiter)
 
     def _applyMetrics(r: dict) -> dict:
         return {
@@ -612,6 +618,9 @@ def showBench(
         if show_progress:
             progress.stop()
 
+    sr.setComparisonIndices({
+        bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
+    })
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
     return sr
