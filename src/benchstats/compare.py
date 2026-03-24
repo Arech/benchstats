@@ -281,7 +281,7 @@ def compareStats(
     alt_delimiter: str | None = None,
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
-    main_metrics: None | list[str] | tuple[str] = None,
+    main_metrics: None | str | list[str] | tuple[str] = None,
     debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
     edge_cases_workaround: None | bool = None,
@@ -308,8 +308,8 @@ def compareStats(
     comparisons: "foo|0bar vs 0baz", "foo|0bar vs 1qux" and "foo|0baz vs 1qux". Numbers 0 and 1 in
     benchmark alternative names references source set of benchmark results (sg0 or sg1).
 
-    `main_metrics` is either a list/tuple of strings describing containing main metrics for the
-    purpose of computing of at_least_one_differs flag, or None (then all metrics are main)
+    `main_metrics` is either a string, a list/tuple of strings describing containing main metrics
+    for the purpose of computing of at_least_one_differs flag, or None (then all metrics are main).
 
     `debug_log` is a bool, but could also be None (==False) or a logger object like LoggingConsole.
 
@@ -343,6 +343,8 @@ def compareStats(
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
     assert edge_cases_workaround is None or isinstance(edge_cases_workaround, bool)
+    if isinstance(main_metrics, str):
+        main_metrics = (main_metrics,)
     assert main_metrics is None or isinstance(main_metrics, (list, tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
