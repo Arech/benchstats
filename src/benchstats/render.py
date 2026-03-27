@@ -132,7 +132,7 @@ def renderComparisonResults(
     dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
-    main_metrics: Iterable[str] = None,
+    main_metrics: str | Iterable[str] | None = None,
     show_sample_sizes: bool = False,
     sample_stats=None,  # or iterable with predefined values: float%, or from kPossibleStatNames.keys()
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
@@ -203,6 +203,8 @@ def renderComparisonResults(
     )
 
     metrics = comp_res.getMetrics()
+    if isinstance(main_metrics, str):
+        main_metrics = (main_metrics,)
     if main_metrics is None or len(main_metrics) < 1:
         main_metrics = [metrics[0]]
     else:
