@@ -327,6 +327,7 @@ class TestQBench(unittest.TestCase):
             render_report=False,
             console=None,
             show_progress_each=0,
+            start_with_reshuffled=False,
         )
         # seed is chosen to modify the first bootstrap result and produce the same second result
 

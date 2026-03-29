@@ -34,9 +34,7 @@ def _getOptionalArgs(func) -> dict[str, Any]:
 
 # support for combined arguments of showBench()
 _g_compareStats_args = frozenset(_getOptionalArgs(compareStats).keys())
-_g_renderComparisonResults_args = frozenset(
-    _getOptionalArgs(renderComparisonResults).keys()
-)
+_g_renderComparisonResults_args = frozenset(_getOptionalArgs(renderComparisonResults).keys())
 _g_both_compStats_renderCompRes_args = _g_compareStats_args.intersection(
     _g_renderComparisonResults_args
 )
@@ -140,9 +138,7 @@ class BenchmarkDescription(
 
         kwargs = {
             "wait_arg_complete": _extractDefault(cls._n_posargs, def_wait_arg_complete),
-            "wait_func_complete": _extractDefault(
-                cls._n_posargs + 1, def_wait_func_complete
-            ),
+            "wait_func_complete": _extractDefault(cls._n_posargs + 1, def_wait_func_complete),
         }
         assert len(kwargs) == cls._max_len - cls._n_posargs
         assert all(callable(f) for f in kwargs.values())
@@ -302,9 +298,7 @@ def bench(
     if wait_func_complete is None:
         wait_func_complete = wait_complete
 
-    funcs = _toBenchmarkDescription(
-        funcs, wait_arg_complete, wait_func_complete, clear_cache
-    )
+    funcs = _toBenchmarkDescription(funcs, wait_arg_complete, wait_func_complete, clear_cache)
 
     n_funcs = len(funcs)
     assert iters > 0, "iters must be a positive integer."
@@ -426,9 +420,9 @@ def resultsToDict(
         bm_names = (bm_names,)
 
     bm_names_err = "bm_names must be a non-empty tuple or list of strings."
-    assert isinstance(bm_names, (list, tuple)) and all(
-        isinstance(n, str) for n in bm_names
-    ), bm_names_err
+    assert isinstance(bm_names, (list, tuple)) and all(isinstance(n, str) for n in bm_names), (
+        bm_names_err
+    )
     n_names = len(bm_names)
     assert n_names > 0, bm_names_err
 
@@ -585,7 +579,11 @@ def showBench(
     - pvalue_stats_bootstrap_seed (Any, default None): if pvalue bootstrapping is enabled, this seed
         will initialize the random number generator for bootstrapping.
     - start_with_reshuffled (bool, False by default): if True and bootstrapping is enabled, even the
-        first comparison will be computed on reshuffled results.
+        first comparison will be computed on reshuffled results. Otherwise it is ignored.
+        Note that benchmarking results rendering doesn't currently support judging the comparison
+        result by the p-value statistics (it only uses results of the first comparison instead), so
+        it's not recommended to use this option if your code or rendered results interpretation
+        doesn't have an additional logic to take the bootstrapped results into account.
     - show_progress_each - if p-value bootstrapping is enabled and it's a positive integer,
         show progress bars and update them each that many bootstrapping iterations.
     - same_console_for_progress (bool, False by default): If True, use the same console for progress
@@ -630,6 +628,11 @@ def showBench(
     rng = None
     if pvalue_stats_bootstrap > 0 and start_with_reshuffled:
         pvalue_stats_bootstrap -= 1
+        if pvalue_stats_bootstrap <= 0 and console is not None:
+            console.warning(
+                "pvalue_stats_bootstrap is 0, so no bootstrapping will be done even though start_with_reshuffled is True."
+            )
+
         rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
         for _, res in resd.items():
             rng.shuffle(res.reshape(-1))
@@ -645,9 +648,7 @@ def showBench(
             progress = Progress(
                 transient=True, console=console if same_console_for_progress else None
             )
-            task = progress.add_task(
-                "P-value bootstrapping", total=pvalue_stats_bootstrap
-            )
+            task = progress.add_task("P-value bootstrapping", total=pvalue_stats_bootstrap)
             progress.start()
 
         bs_compStats_args = compStats_args.copy()
@@ -667,12 +668,9 @@ def showBench(
         if show_progress:
             progress.stop()
 
-    sr.setComparisonIndices(
-        {
-            bm_name: (bm_idxs[bm0], bm_idxs[bm1])
-            for bm_name, (bm0, bm1) in sr.comparisons.items()
-        }
-    )
+    sr.setComparisonIndices({
+        bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
+    })
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
     return sr
