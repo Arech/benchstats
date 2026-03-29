@@ -34,7 +34,9 @@ def _getOptionalArgs(func) -> dict[str, Any]:
 
 # support for combined arguments of showBench()
 _g_compareStats_args = frozenset(_getOptionalArgs(compareStats).keys())
-_g_renderComparisonResults_args = frozenset(_getOptionalArgs(renderComparisonResults).keys())
+_g_renderComparisonResults_args = frozenset(
+    _getOptionalArgs(renderComparisonResults).keys()
+)
 _g_both_compStats_renderCompRes_args = _g_compareStats_args.intersection(
     _g_renderComparisonResults_args
 )
@@ -48,7 +50,13 @@ _g_both_compStats_renderCompRes_args = _g_compareStats_args.intersection(
 class BenchmarkDescription(
     namedtuple(
         "BenchmarkDescription",
-        ["bench_func", "args_func", "clear_cache_func", "wait_arg_complete", "wait_func_complete"],
+        [
+            "bench_func",
+            "args_func",
+            "clear_cache_func",
+            "wait_arg_complete",
+            "wait_func_complete",
+        ],
     )
 ):
     """Describe a benchmark, i.e. which function to measure, how to get its arguments, how to
@@ -66,7 +74,8 @@ class BenchmarkDescription(
         args_func: Callable[[], Iterable] | None = None,
         clear_cache_func: Callable[[Iterable], None] | None = None,
         *,
-        wait_complete: Callable[[Any], Any] | None = None,  # sets the default value for the 2 below
+        # wait_complete sets the default value for the other 2 below
+        wait_complete: Callable[[Any], Any] | None = None,
         wait_arg_complete: Callable[[Any], Any] | None = None,
         wait_func_complete: Callable[[Any], Any] | None = None,
     ):
@@ -87,7 +96,12 @@ class BenchmarkDescription(
         assert len(cls._fields) == cls._max_len
         assert cls._max_len - cls._n_posargs == 2
         return super().__new__(
-            cls, bench_func, args_func, clear_cache_func, wait_arg_complete, wait_func_complete
+            cls,
+            bench_func,
+            args_func,
+            clear_cache_func,
+            wait_arg_complete,
+            wait_func_complete,
         )
 
     @classmethod
@@ -126,7 +140,9 @@ class BenchmarkDescription(
 
         kwargs = {
             "wait_arg_complete": _extractDefault(cls._n_posargs, def_wait_arg_complete),
-            "wait_func_complete": _extractDefault(cls._n_posargs + 1, def_wait_func_complete),
+            "wait_func_complete": _extractDefault(
+                cls._n_posargs + 1, def_wait_func_complete
+            ),
         }
         assert len(kwargs) == cls._max_len - cls._n_posargs
         assert all(callable(f) for f in kwargs.values())
@@ -152,7 +168,11 @@ class BenchmarkDescription(
             def_clear_cache = lambda x: None  # noqa: E731
 
         args, kwargs = cls._toArgsKwargs(
-            it, def_args_func, def_wait_arg_complete, def_wait_func_complete, def_clear_cache
+            it,
+            def_args_func,
+            def_wait_arg_complete,
+            def_wait_func_complete,
+            def_clear_cache,
         )
         return cls(*args, **kwargs)
 
@@ -282,7 +302,9 @@ def bench(
     if wait_func_complete is None:
         wait_func_complete = wait_complete
 
-    funcs = _toBenchmarkDescription(funcs, wait_arg_complete, wait_func_complete, clear_cache)
+    funcs = _toBenchmarkDescription(
+        funcs, wait_arg_complete, wait_func_complete, clear_cache
+    )
 
     n_funcs = len(funcs)
     assert iters > 0, "iters must be a positive integer."
@@ -361,7 +383,9 @@ def bench2(func1, func2, **kwargs):
 
 
 def resultsToDict(
-    results: np.ndarray, bm_names: tuple | list | str = "code", alt_delimiter: str | None = None
+    results: np.ndarray,
+    bm_names: tuple | list | str = "code",
+    alt_delimiter: str | None = None,
 ) -> tuple[dict[str, np.ndarray], str, dict[str, str]]:
     """Store benchmark results in a dictionary benchmark_name -> benchmark_results
 
@@ -402,9 +426,9 @@ def resultsToDict(
         bm_names = (bm_names,)
 
     bm_names_err = "bm_names must be a non-empty tuple or list of strings."
-    assert isinstance(bm_names, (list, tuple)) and all(isinstance(n, str) for n in bm_names), (
-        bm_names_err
-    )
+    assert isinstance(bm_names, (list, tuple)) and all(
+        isinstance(n, str) for n in bm_names
+    ), bm_names_err
     n_names = len(bm_names)
     assert n_names > 0, bm_names_err
 
@@ -509,8 +533,10 @@ def showBench(
     console: None | LoggingConsole = None,
     pvalue_stats_bootstrap: int = 100,
     pvalue_stats_bootstrap_seed: Any = None,
+    start_with_reshuffled: bool = False,
     show_progress_each: int = 1,
     render_report: bool = True,
+    same_console_for_progress: bool = False,
     **kwCompareStats_and_renderArgs,
 ) -> CompareStatsResult:
     """
@@ -552,10 +578,19 @@ def showBench(
         assumption of the statistical tests.
         Note that large values like 1000 are computationally expensive, but provide more stable
         results thanks to a better coverage.
+        By default the first comparison is computed on the original results and the rest
+        `pvalue_stats_bootstrap` comparisons are computed on reshuffled results. This can be changed
+        by setting `start_with_reshuffled` to True, which make even the first comparison computed on
+        reshuffled results, doing `pvalue_stats_bootstrap - 1` iterations of bootstrapping in total.
     - pvalue_stats_bootstrap_seed (Any, default None): if pvalue bootstrapping is enabled, this seed
         will initialize the random number generator for bootstrapping.
+    - start_with_reshuffled (bool, False by default): if True and bootstrapping is enabled, even the
+        first comparison will be computed on reshuffled results.
     - show_progress_each - if p-value bootstrapping is enabled and it's a positive integer,
         show progress bars and update them each that many bootstrapping iterations.
+    - same_console_for_progress (bool, False by default): If True, use the same console for progress
+        bar. Useful for using in scripts, but is disabled by default to prevent effect on exported
+        reports.
     - render_report (bool, True by default): If False, only returns CompareStatsResult object,
          but doesn't print the report.
     - kwCompareStats_and_renderArgs: Any optional arguments of the compareStats()
@@ -592,24 +627,38 @@ def showBench(
             for bm_name, res in r.items()
         }
 
+    rng = None
+    if pvalue_stats_bootstrap > 0 and start_with_reshuffled:
+        pvalue_stats_bootstrap -= 1
+        rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
+        for _, res in resd.items():
+            rng.shuffle(res.reshape(-1))
+
     sg = _applyMetrics(resd)
     sr = compareStats(sg, None, alt_delimiter=alt_delimiter, **compStats_args)
 
     if pvalue_stats_bootstrap > 0:
-        rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
-        reps, iters = results.shape[1:]
+        if rng is None:
+            rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
 
         if show_progress:
-            progress = Progress(transient=True)
-            task = progress.add_task("P-value bootstrapping", total=pvalue_stats_bootstrap)
+            progress = Progress(
+                transient=True, console=console if same_console_for_progress else None
+            )
+            task = progress.add_task(
+                "P-value bootstrapping", total=pvalue_stats_bootstrap
+            )
             progress.start()
+
+        bs_compStats_args = compStats_args.copy()
+        bs_compStats_args["store_sets"] = False
+        bs_compStats_args["debug_log"] = False
 
         for i in range(pvalue_stats_bootstrap):
             for _, res in resd.items():
                 rng.shuffle(res.reshape(-1))
-                assert res.shape == (reps, iters)
             sg = _applyMetrics(resd)
-            cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **compStats_args)
+            cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **bs_compStats_args)
             sr.updatePvalStats(cs)
 
             if show_progress and i % show_progress_each == 0:
@@ -618,9 +667,12 @@ def showBench(
         if show_progress:
             progress.stop()
 
-    sr.setComparisonIndices({
-        bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
-    })
+    sr.setComparisonIndices(
+        {
+            bm_name: (bm_idxs[bm0], bm_idxs[bm1])
+            for bm_name, (bm0, bm1) in sr.comparisons.items()
+        }
+    )
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
     return sr
