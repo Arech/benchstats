@@ -581,7 +581,7 @@ def showBench(
     - start_with_reshuffled (bool, False by default): if True and bootstrapping is enabled, even the
         first comparison will be computed on reshuffled results. Otherwise it is ignored.
         Note that benchmarking results rendering doesn't currently support judging the comparison
-        result by the p-value statistics (it only uses results of the first comparison instead), so
+        result by the p-value statistics (it always use results of the first comparison instead), so
         it's not recommended to use this option if your code or rendered results interpretation
         doesn't have an additional logic to take the bootstrapped results into account.
     - show_progress_each - if p-value bootstrapping is enabled and it's a positive integer,

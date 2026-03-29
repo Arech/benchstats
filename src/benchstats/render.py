@@ -183,17 +183,6 @@ def renderComparisonResults(
             )
     assert title is None or isinstance(title, str)
 
-    if show_pvalue_stats:
-        if not comp_res.pval_stats_available:
-            show_pvalue_stats = False
-            console.debug("P-value statistics are not available, disabling show_pvalue_stats")
-        else:
-            pvs_iters = None
-            pvs_styles = [  # indexed by is_main
-                [_getFmt(f"metric_{fld}_diff" if i < 2 else f"metric_{fld}_same") for i in range(3)]
-                for fld in ("scnd", "main")
-            ]
-
     delim_space = "\n" if multiline else " "
 
     _column_descr = (
@@ -212,6 +201,17 @@ def renderComparisonResults(
 
     scnd_metrics = [m for m in metrics if m not in main_metrics]
     iter_metrics = [*main_metrics, *scnd_metrics]
+
+    if show_pvalue_stats:
+        if not comp_res.pval_stats_available:
+            show_pvalue_stats = False
+            console.debug("P-value statistics are not available, disabling show_pvalue_stats")
+        else:
+            pvs_iters = None
+            pvs_styles = [  # indexed by is_main
+                [_getFmt(f"metric_{fld}_diff" if i < 2 else f"metric_{fld}_same") for i in range(3)]
+                for fld in ("scnd", "main")
+            ]
 
     metric_unit_keys = [f"metric_{m}_unit" for m in iter_metrics]
 

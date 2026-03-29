@@ -39,7 +39,7 @@ class BmCompResult(
     def __new__(
         cls,
         res: str,
-        pval: float | int,
+        pvalue: float | int,
         v0: float | int | np.ndarray,
         v1: float | int | np.ndarray,
         siz0: int,
@@ -52,8 +52,8 @@ class BmCompResult(
             > when set1 is stochastically greater than set2,
             ~ when set1 is not stochastically less or greater than set2
 
-        - pval/pvalue is a pvalue associated with less or greater comparison result, or a minimum of
-            pvalues for less/greater comparison
+        - pvalue is a p-value associated with less or greater comparison result, or a minimum of
+            p-values for less/greater comparison
 
         - v0/val_set0 and v1/val_set1 are either representative values (mean) of a corresponding
             set, or the whole set iself, depending on `store_sets` flag value of compareStats()
@@ -62,10 +62,10 @@ class BmCompResult(
         """
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
-        if isinstance(pval, int):
-            pval = float(pval)
-        assert isinstance(pval, kAllowedFpTypes)
-        assert 0 <= pval <= 1
+        if isinstance(pvalue, int):
+            pvalue = float(pvalue)
+        assert isinstance(pvalue, kAllowedFpTypes)
+        assert 0 <= pvalue <= 1
         if isinstance(v0, int):
             v0 = float(v0)
         if isinstance(v1, int):
@@ -80,7 +80,7 @@ class BmCompResult(
         return super().__new__(
             cls,
             res,
-            float(pval),
+            float(pvalue),
             v0 if isinstance(v0, np.ndarray) else float(v0),
             v1 if isinstance(v1, np.ndarray) else float(v1),
             siz0,
