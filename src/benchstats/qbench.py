@@ -6,6 +6,7 @@ of Python callables. Some parts, however, could be reused outside of Python benc
 import argparse
 from collections import namedtuple
 from collections.abc import Callable, Iterable
+from copy import deepcopy
 import itertools
 import inspect
 import numpy as np
@@ -519,9 +520,9 @@ def _splitCompareStats_and_renderArgs(
 
 
 def showBench(
-    results: np.ndarray,
+    results: np.ndarray | dict[str, np.ndarray],
     *,
-    bm_names: tuple | list | str = "code",
+    bm_names: tuple | list | str | None = "code",
     alt_delimiter: str | None = None,
     metrics: dict = {"mean": np.mean, "min": np.min},
     console: None | LoggingConsole = None,
@@ -537,8 +538,12 @@ def showBench(
     Displays the benchmark results in a human-readable format.
 
     Args:
-    - results (np.ndarray): The benchmark results as a 3D [nfuncs, reps, iters] or 2D [reps, iters]
-        numpy array. Essentially, the output of the bench() function.
+    - results (np.ndarray | dict[str, np.ndarray]): The benchmark results as a 3D
+        [nfuncs, reps, iters] or 2D [reps, iters] numpy array. Essentially, the output of the
+        bench() function.
+        Alternatively, could be a dictionary mapping benchmark names to benchmark results as 2D
+        matrix of potentially different shapes (reps, iters). In that case, `bm_names` must be None
+        and `alt_delimiter` must be a valid delimiter string.
     - bm_names (tuple|list|str, optional) and alt_delimiter: (str|None, optional): defines the
         names of the benchmarks and how they are compared one against the other. Options are:
         - if alt_delimiter is None:
@@ -606,18 +611,27 @@ def showBench(
                 kwCompareStats_and_renderArgs["debug_log"] = False
     assert console is None or isinstance(console, LoggingConsole)
 
-    if pvalue_stats_bootstrap > 0 or results.ndim == 2:
-        results = results.copy()
+    results_is_dict = isinstance(results, dict)
+    if results_is_dict:
+        assert bm_names is None and isinstance(alt_delimiter, str) and len(alt_delimiter) > 0
+        assert all(isinstance(r, np.ndarray) and r.ndim == 2 for r in results.values())
+
+    if pvalue_stats_bootstrap > 0 or (not results_is_dict and results.ndim < 3):
+        results = deepcopy(results)
         show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
-        if results.ndim == 2:
+        if not results_is_dict and results.ndim < 3:
             results = np.expand_dims(results, axis=0)
 
-    assert results.ndim == 3, "results must be a 3D numpy array."
+    assert not results_is_dict or results.ndim == 3, "results must be a dict or 3D numpy array."
 
     compStats_args, render_args = _splitCompareStats_and_renderArgs(
         kwCompareStats_and_renderArgs, console
     )
-    resd, alt_delimiter, bm_idxs = resultsToDict(results, bm_names, alt_delimiter)
+
+    if results_is_dict:
+        resd = results
+    else:
+        resd, alt_delimiter, bm_idxs = resultsToDict(results, bm_names, alt_delimiter)
 
     def _applyMetrics(r: dict) -> dict:
         return {
@@ -668,9 +682,11 @@ def showBench(
         if show_progress:
             progress.stop()
 
-    sr.setComparisonIndices({
-        bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
-    })
+    if not results_is_dict:
+        sr.setComparisonIndices({
+            bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
+        })
+
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
     return sr
