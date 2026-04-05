@@ -532,6 +532,7 @@ def showBench(
     show_progress_each: int = 1,
     render_report: bool = True,
     same_console_for_progress: bool = False,
+    allow_inplace_reshuffle: bool = False,
     **kwCompareStats_and_renderArgs,
 ) -> CompareStatsResult:
     """
@@ -596,6 +597,9 @@ def showBench(
         reports.
     - render_report (bool, True by default): If False, only returns CompareStatsResult object,
          but doesn't print the report.
+    - allow_inplace_reshuffle (bool, False by default): If True, allow the `results` to be
+        reshuffled for bootstrapping (or if .ndim < 3 for array argument) in place. Otherwise,
+        a copy of the results is made when necessary.
     - kwCompareStats_and_renderArgs: Any optional arguments of the compareStats()
         or renderComparisonResults() functions. By default compareStats() also gets
         store_sets=True argument, and renderComparisonResults() gets
@@ -616,13 +620,16 @@ def showBench(
         assert bm_names is None and isinstance(alt_delimiter, str) and len(alt_delimiter) > 0
         assert all(isinstance(r, np.ndarray) and r.ndim == 2 for r in results.values())
 
-    if pvalue_stats_bootstrap > 0 or (not results_is_dict and results.ndim < 3):
+    if not allow_inplace_reshuffle and (
+        pvalue_stats_bootstrap > 0 or (not results_is_dict and results.ndim < 3)
+    ):
         results = deepcopy(results)
-        show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
         if not results_is_dict and results.ndim < 3:
             results = np.expand_dims(results, axis=0)
+    assert results_is_dict or results.ndim == 3, "results must be a dict or 3D numpy array."
 
-    assert not results_is_dict or results.ndim == 3, "results must be a dict or 3D numpy array."
+    if pvalue_stats_bootstrap > 0:
+        show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
 
     compStats_args, render_args = _splitCompareStats_and_renderArgs(
         kwCompareStats_and_renderArgs, console
