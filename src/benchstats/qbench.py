@@ -624,8 +624,8 @@ def showBench(
         pvalue_stats_bootstrap > 0 or (not results_is_dict and results.ndim < 3)
     ):
         results = deepcopy(results)
-        if not results_is_dict and results.ndim < 3:
-            results = np.expand_dims(results, axis=0)
+    if not results_is_dict and results.ndim < 3:
+        results = np.expand_dims(results, axis=0)
     assert results_is_dict or results.ndim == 3, "results must be a dict or 3D numpy array."
 
     if pvalue_stats_bootstrap > 0:
