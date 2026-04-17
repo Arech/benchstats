@@ -98,9 +98,9 @@ class CompareStatsResult:
         comparisons: dict[str, tuple[str, str]],
     ):
         """Constructor to verify initialization correctness.
-        - results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys of the
+        - results is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys of the
             top-level dict are common between the data sources sg0 and sg1.
-        - comparisons field is a mapping {benchmark_name -> (bm_name_in_set0, bm_name_in_set1)}
+        - comparisons is a mapping {benchmark_name -> (bm_name_in_set0, bm_name_in_set1)}
         """
         assert isinstance(results, dict) and isinstance(method, str) and method
         assert isinstance(alpha, kAllowedFpTypes)
@@ -161,13 +161,13 @@ class CompareStatsResult:
 
     def areAllSame(self) -> bool:
         """Tests if all benchmarks over all metrics compare same"""
-        return all([
+        return all(
             "~" == cr.result for bm_res in self._results.values() for cr in bm_res.values()
-        ])
+        )
 
     def areMetricsSame(self, metrics: Iterable[str]) -> bool:
         """Tests if all benchmarks over specified metrics compare same"""
-        return all(["~" == bm_res[m].result for bm_res in self._results.values() for m in metrics])
+        return all("~" == bm_res[m].result for bm_res in self._results.values() for m in metrics)
 
     @property
     def pval_stats_available(self) -> bool:

@@ -49,13 +49,7 @@ _g_both_compStats_renderCompRes_args = _g_compareStats_args.intersection(
 class BenchmarkDescription(
     namedtuple(
         "BenchmarkDescription",
-        [
-            "bench_func",
-            "args_func",
-            "clear_cache_func",
-            "wait_arg_complete",
-            "wait_func_complete",
-        ],
+        ["bench_func", "args_func", "clear_cache_func", "wait_arg_complete", "wait_func_complete"],
     )
 ):
     """Describe a benchmark, i.e. which function to measure, how to get its arguments, how to
@@ -95,12 +89,7 @@ class BenchmarkDescription(
         assert len(cls._fields) == cls._max_len
         assert cls._max_len - cls._n_posargs == 2
         return super().__new__(
-            cls,
-            bench_func,
-            args_func,
-            clear_cache_func,
-            wait_arg_complete,
-            wait_func_complete,
+            cls, bench_func, args_func, clear_cache_func, wait_arg_complete, wait_func_complete
         )
 
     @classmethod
@@ -165,11 +154,7 @@ class BenchmarkDescription(
             def_clear_cache = lambda x: None  # noqa: E731
 
         args, kwargs = cls._toArgsKwargs(
-            it,
-            def_args_func,
-            def_wait_arg_complete,
-            def_wait_func_complete,
-            def_clear_cache,
+            it, def_args_func, def_wait_arg_complete, def_wait_func_complete, def_clear_cache
         )
         return cls(*args, **kwargs)
 
@@ -378,9 +363,7 @@ def bench2(func1, func2, **kwargs):
 
 
 def resultsToDict(
-    results: np.ndarray,
-    bm_names: tuple | list | str = "code",
-    alt_delimiter: str | None = None,
+    results: np.ndarray, bm_names: tuple | list | str = "code", alt_delimiter: str | None = None
 ) -> tuple[dict[str, np.ndarray], str, dict[str, str]]:
     """Store benchmark results in a dictionary benchmark_name -> benchmark_results
 
@@ -655,7 +638,7 @@ def showBench(
             )
 
         rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
-        for _, res in resd.items():
+        for res in resd.values():
             rng.shuffle(res.reshape(-1))
 
     sg = _applyMetrics(resd)
