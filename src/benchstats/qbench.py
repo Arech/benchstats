@@ -677,7 +677,7 @@ def showBench(
         bs_compStats_args["debug_log"] = False
 
         for i in range(pvalue_stats_bootstrap):
-            for _, res in resd.items():
+            for res in resd.values():
                 rng.shuffle(res.reshape(-1))
             sg = _applyMetrics(resd)
             cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **bs_compStats_args)
