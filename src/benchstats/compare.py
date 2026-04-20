@@ -39,7 +39,7 @@ class BmCompResult(
     def __new__(
         cls,
         res: str,
-        pval: float | int,
+        pvalue: float | int,
         v0: float | int | np.ndarray,
         v1: float | int | np.ndarray,
         siz0: int,
@@ -52,8 +52,8 @@ class BmCompResult(
             > when set1 is stochastically greater than set2,
             ~ when set1 is not stochastically less or greater than set2
 
-        - pval/pvalue is a pvalue associated with less or greater comparison result, or a minimum of
-            pvalues for less/greater comparison
+        - pvalue is a p-value associated with less or greater comparison result, or a minimum of
+            p-values for less/greater comparison
 
         - v0/val_set0 and v1/val_set1 are either representative values (mean) of a corresponding
             set, or the whole set iself, depending on `store_sets` flag value of compareStats()
@@ -62,10 +62,10 @@ class BmCompResult(
         """
 
         # assert isinstance(rel, bool) and isinstance(pval, (float, np.floating))
-        if isinstance(pval, int):
-            pval = float(pval)
-        assert isinstance(pval, kAllowedFpTypes)
-        assert 0 <= pval <= 1
+        if isinstance(pvalue, int):
+            pvalue = float(pvalue)
+        assert isinstance(pvalue, kAllowedFpTypes)
+        assert 0 <= pvalue <= 1
         if isinstance(v0, int):
             v0 = float(v0)
         if isinstance(v1, int):
@@ -80,7 +80,7 @@ class BmCompResult(
         return super().__new__(
             cls,
             res,
-            float(pval),
+            float(pvalue),
             v0 if isinstance(v0, np.ndarray) else float(v0),
             v1 if isinstance(v1, np.ndarray) else float(v1),
             siz0,
@@ -95,10 +95,12 @@ class CompareStatsResult:
         method: str,
         alpha: float,
         at_least_one_differs: bool,
+        comparisons: dict[str, tuple[str, str]],
     ):
         """Constructor to verify initialization correctness.
-        - results field is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys of the
+        - results is a mapping {benchmark_name -> {metric_name -> CompResult}}. Keys of the
             top-level dict are common between the data sources sg0 and sg1.
+        - comparisons is a mapping {benchmark_name -> (bm_name_in_set0, bm_name_in_set1)}
         """
         assert isinstance(results, dict) and isinstance(method, str) and method
         assert isinstance(alpha, kAllowedFpTypes)
@@ -107,6 +109,8 @@ class CompareStatsResult:
         self._method: str = method
         self._alpha: float = float(alpha)
         self._at_least_one_differs = bool(at_least_one_differs)
+        self._comparisons: dict[str, tuple[str, str]] = comparisons
+        self._comparison_indices: dict[str, tuple[int, int]] | None = None
         # {benchmark_name -> {metric_name -> {result_type -> list of pvalues}}}
         self._pval_stats: None | dict[str, dict[str, dict[str, list[float]]]] = None
 
@@ -123,8 +127,31 @@ class CompareStatsResult:
         return self._alpha
 
     @property
+    def comparisons(self) -> dict[str, tuple[str, str]]:
+        """Returns a mapping between a benchmark name in the results and a tuple of names of the
+        original data in the original data sets"""
+        return self._comparisons
+
+    @property
     def at_least_one_differs(self) -> bool:
+        """Returns True if at least one benchmark/metric comparison result is different from "~"
+        (no difference) for any metric from `main_metrics` list (or for any metric if `main_metrics`
+        is None)"""
         return self._at_least_one_differs
+
+    @property
+    def comparison_indices(self) -> dict[str, tuple[int, int]] | None:
+        """Returns a mapping between a benchmark name in the results and a tuple of indices of the
+        original data in the original data sets"""
+        return self._comparison_indices
+
+    def setComparisonIndices(self, comparison_indices: dict[str, tuple[int, int]]):
+        """Sets a mapping between a benchmark name in the results and a tuple of indices of the
+        original data of the original data sets (when qbench's form of benchmarks is used)"""
+        # assert isinstance(comparison_indices, dict)
+        # assert all(isinstance(k, str) and isinstance(v, tuple) and len(v) == 2 and all(isinstance(i, int) for i in v) for k, v in comparison_indices.items())
+        # assert frozenset(comparison_indices.keys()) == frozenset(self._comparisons.keys())
+        self._comparison_indices = comparison_indices
 
     def getMetrics(self) -> tuple[str]:
         return tuple(next(iter(self._results.values())).keys())
@@ -134,13 +161,13 @@ class CompareStatsResult:
 
     def areAllSame(self) -> bool:
         """Tests if all benchmarks over all metrics compare same"""
-        return all([
+        return all(
             "~" == cr.result for bm_res in self._results.values() for cr in bm_res.values()
-        ])
+        )
 
     def areMetricsSame(self, metrics: Iterable[str]) -> bool:
         """Tests if all benchmarks over specified metrics compare same"""
-        return all(["~" == bm_res[m].result for bm_res in self._results.values() for m in metrics])
+        return all("~" == bm_res[m].result for bm_res in self._results.values() for m in metrics)
 
     @property
     def pval_stats_available(self) -> bool:
@@ -162,6 +189,7 @@ class CompareStatsResult:
         assert isinstance(other, CompareStatsResult)
         assert other.method == self.method and other.alpha == self.alpha
         assert self._results.keys() == other._results.keys()
+        assert self._comparisons == other._comparisons
         self._at_least_one_differs = self._at_least_one_differs or other._at_least_one_differs
         for bm, omdict in other._results.items():
             mdict = self._results[bm]
@@ -183,7 +211,7 @@ def poolBenchmarks(
     sg0: dict[str, dict[str, Iterable[float]]],
     sg1: dict[str, dict[str, Iterable[float]]] | None,
     logger: LoggingConsole | None = None,
-) -> dict[str, dict[str, dict[str, Iterable[float]]]]:
+) -> tuple[dict[str, dict[str, dict[str, Iterable[float]]]], dict[str, dict[str, str]]]:
     """Using the specified delimiter divides each benchmark name into (the longest possible) common
     part and an alternative name part, merges the benchmarks from one or two sets of benchmarks into
     a single pool represented by a dictionary where a key specifies common part of benchmark name
@@ -193,6 +221,9 @@ def poolBenchmarks(
     If a benchmark name doesn't contain the delimiter, then its common name is assumed to be a whole
     benchmark name, and its alternative name is assumed to either "0" or "1" depending on the
     benchmark set (sg0 or sg1) it belongs to.
+
+    Returns a mapping {common_name -> {alternative_name -> {metric_name -> values}}}, and a mapping
+    of original names {common_name -> {alternative_name -> original_name}}
     """
     assert isinstance(alt_delimiter, str) and len(alt_delimiter) > 0
     assert isinstance(sg0, dict) and (isinstance(sg1, dict) or sg1 is None)
@@ -213,12 +244,15 @@ def poolBenchmarks(
         else:
             return bm_name, pfx
 
+    pool = {}
+    original_names = {}
+
     def _do_pool(
-        pool: dict[str, dict[str, dict[str, Iterable[float]]]],
         sg: dict[str, dict[str, Iterable[float]]],
         pfx: str,
     ):
         """Merges the benchmarks from one set of benchmarks into a pool"""
+        nonlocal pool, original_names
         for bm_name, metrics in sg.items():
             common_name, alt_name = splitName(bm_name, pfx)
             cmn_bm = pool.setdefault(common_name, {})
@@ -230,15 +264,15 @@ def poolBenchmarks(
                 )
                 continue
             cmn_bm[alt_name] = metrics
+            original_names.setdefault(common_name, {})[alt_name] = bm_name
 
-    pool = {}
     if sg1 is None:
-        _do_pool(pool, sg0, "")
+        _do_pool(sg0, "")
     else:
-        _do_pool(pool, sg0, "0")
-        _do_pool(pool, sg1, "1")
+        _do_pool(sg0, "0")
+        _do_pool(sg1, "1")
 
-    return pool
+    return pool, original_names
 
 
 def compareStats(
@@ -247,7 +281,7 @@ def compareStats(
     alt_delimiter: str | None = None,
     method: str = next(iter(kMethods.keys())),
     alpha: float = kDefaultAlpha,
-    main_metrics: None | list[str] | tuple[str] = None,
+    main_metrics: None | str | list[str] | tuple[str] = None,
     debug_log: None | bool | LoggingConsole = True,
     store_sets: bool = False,
     edge_cases_workaround: None | bool = None,
@@ -274,8 +308,8 @@ def compareStats(
     comparisons: "foo|0bar vs 0baz", "foo|0bar vs 1qux" and "foo|0baz vs 1qux". Numbers 0 and 1 in
     benchmark alternative names references source set of benchmark results (sg0 or sg1).
 
-    `main_metrics` is either a list/tuple of strings describing containing main metrics for the
-    purpose of computing of at_least_one_differs flag, or None (then all metrics are main)
+    `main_metrics` is either a string, a list/tuple of strings describing containing main metrics
+    for the purpose of computing of at_least_one_differs flag, or None (then all metrics are main).
 
     `debug_log` is a bool, but could also be None (==False) or a logger object like LoggingConsole.
 
@@ -309,6 +343,8 @@ def compareStats(
     assert isinstance(method, str) and method in kMethods, "unsupported method"
     assert isinstance(alpha, kAllowedFpTypes) and 0 < alpha and alpha < 0.5
     assert edge_cases_workaround is None or isinstance(edge_cases_workaround, bool)
+    if isinstance(main_metrics, str):
+        main_metrics = (main_metrics,)
     assert main_metrics is None or isinstance(main_metrics, (list, tuple))
 
     if debug_log is None or (isinstance(debug_log, bool) and not debug_log):
@@ -320,7 +356,7 @@ def compareStats(
         debug_log = True
 
     if edge_cases_workaround is None:
-        edge_cases_workaround = (method in ("brunnermunzel", "ttest_ind"))
+        edge_cases_workaround = method in ("brunnermunzel", "ttest_ind")
 
     def warn(*args, **kwargs):
         if debug_log:
@@ -449,9 +485,10 @@ def compareStats(
         return bm_results
 
     results = {}
+    comparisons: dict[str, tuple[str, str]] = {}  # {comparison_name -> (bm_name0, bm_name1)}
 
     if with_alternatives:
-        pool = poolBenchmarks(alt_delimiter, sg0, sg1, logger if debug_log else None)
+        pool, orig_names = poolBenchmarks(alt_delimiter, sg0, sg1, logger if debug_log else None)
 
         for common_name, alternatives in pool.items():
             if len(alternatives) <= 1:
@@ -462,12 +499,14 @@ def compareStats(
                 )
                 continue
 
+            onames = orig_names[common_name]
             for altA, altB in itertools.combinations(alternatives.keys(), 2):
                 assert isinstance(altA, str) and isinstance(altB, str)
                 assert altA != altB
                 bm_name = f"{common_name} {alt_delimiter} {altA} vs {altB}"
                 assert bm_name not in results
                 results[bm_name] = compareBenchmark(bm_name, alternatives[altA], alternatives[altB])
+                comparisons[bm_name] = (onames[altA], onames[altB])
 
     else:
         common_bms = sg0.keys() & sg1.keys()
@@ -485,5 +524,6 @@ def compareStats(
                 warn("Key/benchmark name '%s' not found in set2", bm_name)
                 continue
             results[bm_name] = compareBenchmark(bm_name, metrics1, sg1[bm_name])
+            comparisons[bm_name] = (bm_name, bm_name)
 
-    return CompareStatsResult(results, method, alpha, bool(at_least_one_differs))
+    return CompareStatsResult(results, method, alpha, bool(at_least_one_differs), comparisons)

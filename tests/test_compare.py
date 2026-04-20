@@ -9,7 +9,7 @@ kAlpha = bsc.kDefaultAlpha
 
 class TestCompareStatsResult(unittest.TestCase):
     def test_updatePvalStats(self):
-        defargs = (kMethods[0], kAlpha, True)
+        defargs = (kMethods[0], kAlpha, True,{})
         cs0 = bsc.CompareStatsResult(
             {
                 "b1": {

@@ -132,7 +132,7 @@ def renderComparisonResults(
     dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
-    main_metrics: Iterable[str] = None,
+    main_metrics: str | Iterable[str] | None = None,
     show_sample_sizes: bool = False,
     sample_stats=None,  # or iterable with predefined values: float%, or from kPossibleStatNames.keys()
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
@@ -183,6 +183,25 @@ def renderComparisonResults(
             )
     assert title is None or isinstance(title, str)
 
+    delim_space = "\n" if multiline else " "
+
+    _column_descr = (
+        f",{delim_space}{_column_descr}"
+        if _getFmt("show_stats_header") and sample_stats is not None
+        else ""
+    )
+
+    metrics = comp_res.getMetrics()
+    if isinstance(main_metrics, str):
+        main_metrics = (main_metrics,)
+    if main_metrics is None or len(main_metrics) < 1:
+        main_metrics = [metrics[0]]
+    else:
+        assert all([isinstance(m, str) and m in metrics for m in main_metrics])
+
+    scnd_metrics = [m for m in metrics if m not in main_metrics]
+    iter_metrics = [*main_metrics, *scnd_metrics]
+
     if show_pvalue_stats:
         if not comp_res.pval_stats_available:
             show_pvalue_stats = False
@@ -193,23 +212,6 @@ def renderComparisonResults(
                 [_getFmt(f"metric_{fld}_diff" if i < 2 else f"metric_{fld}_same") for i in range(3)]
                 for fld in ("scnd", "main")
             ]
-
-    delim_space = "\n" if multiline else " "
-
-    _column_descr = (
-        f",{delim_space}{_column_descr}"
-        if _getFmt("show_stats_header") and sample_stats is not None
-        else ""
-    )
-
-    metrics = comp_res.getMetrics()
-    if main_metrics is None or len(main_metrics) < 1:
-        main_metrics = [metrics[0]]
-    else:
-        assert all([isinstance(m, str) and m in metrics for m in main_metrics])
-
-    scnd_metrics = [m for m in metrics if m not in main_metrics]
-    iter_metrics = [*main_metrics, *scnd_metrics]
 
     metric_unit_keys = [f"metric_{m}_unit" for m in iter_metrics]
 

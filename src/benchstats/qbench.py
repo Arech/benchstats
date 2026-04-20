@@ -6,6 +6,7 @@ of Python callables. Some parts, however, could be reused outside of Python benc
 import argparse
 from collections import namedtuple
 from collections.abc import Callable, Iterable
+from copy import deepcopy
 import itertools
 import inspect
 import numpy as np
@@ -66,7 +67,8 @@ class BenchmarkDescription(
         args_func: Callable[[], Iterable] | None = None,
         clear_cache_func: Callable[[Iterable], None] | None = None,
         *,
-        wait_complete: Callable[[Any], Any] | None = None,  # sets the default value for the 2 below
+        # wait_complete sets the default value for the other 2 below
+        wait_complete: Callable[[Any], Any] | None = None,
         wait_arg_complete: Callable[[Any], Any] | None = None,
         wait_func_complete: Callable[[Any], Any] | None = None,
     ):
@@ -362,7 +364,7 @@ def bench2(func1, func2, **kwargs):
 
 def resultsToDict(
     results: np.ndarray, bm_names: tuple | list | str = "code", alt_delimiter: str | None = None
-) -> tuple[dict[str, np.ndarray], str]:
+) -> tuple[dict[str, np.ndarray], str, dict[str, str]]:
     """Store benchmark results in a dictionary benchmark_name -> benchmark_results
 
     Arguments:
@@ -385,11 +387,13 @@ def resultsToDict(
                 of functions benchmarked (results.shape[0]), where each string is parsed
                 according to the expected format: "<common_name>{alt_delimiter}<alternative_name>".
                 Benchmarks with the same "<common_name>" are compared pairwise.
-    Returns a tuple of 2 objects:
+    Returns a tuple of 3 objects:
         dict[str, np.ndarray]: A dictionary mapping benchmark names to benchmark results as 2D
             matrix of shape (reps, iters). Note that matricies returned are views into the original
             results array, so modifying them will modify the original results array as well.
         str - possibly modified alt_delimiter value
+        dict[str, int] - mapping of created benchmark names to indices of benchmark data in the
+            results array
     """
     if results.ndim == 2:
         results = np.expand_dims(results, axis=0)
@@ -406,13 +410,17 @@ def resultsToDict(
     n_names = len(bm_names)
     assert n_names > 0, bm_names_err
 
-    def addBenchmark(sg: dict, bm_name: str, b_idx: int):
+    sg = {}
+    bm_idxs = {}
+
+    def addBenchmark(bm_name: str, b_idx: int):
+        nonlocal sg
         assert bm_name not in sg, (
             f"Duplicate benchmark name '{bm_name}' found. Please provide unique names."
         )
         sg[bm_name] = results[b_idx, :, :]  # .copy()
+        bm_idxs[bm_name] = b_idx
 
-    sg = {}
     if alt_delimiter is None:
         if n_funcs % n_names != 0:
             raise ValueError(
@@ -423,8 +431,8 @@ def resultsToDict(
         alt_delimiter = "|"
 
         if n_funcs_per_bm <= 1:
-            addBenchmark(sg, f"{bm_names[0]}{alt_delimiter}0", 0)
-            addBenchmark(sg, f"{bm_names[0]}{alt_delimiter}same", 0)
+            addBenchmark(f"{bm_names[0]}{alt_delimiter}0", 0)
+            addBenchmark(f"{bm_names[0]}{alt_delimiter}same", 0)
         else:
             combination_set = list(itertools.combinations(range(n_funcs_per_bm), 2))
             func_group_idx = 0
@@ -432,10 +440,10 @@ def resultsToDict(
                 for cs in combination_set:
                     n1 = f"{bm_name}{alt_delimiter}{cs[0]}"
                     if n1 not in sg:
-                        addBenchmark(sg, n1, func_group_idx + cs[0])
+                        addBenchmark(n1, func_group_idx + cs[0])
                     n2 = f"{bm_name}{alt_delimiter}{cs[1]}"
                     if n2 not in sg:
-                        addBenchmark(sg, n2, func_group_idx + cs[1])
+                        addBenchmark(n2, func_group_idx + cs[1])
                 func_group_idx += n_funcs_per_bm
 
     else:
@@ -453,9 +461,9 @@ def resultsToDict(
                 raise ValueError(
                     f"Duplicate benchmark name '{bm_name}' found. Please provide unique names."
                 )
-            addBenchmark(sg, bm_name, b_idx)
+            addBenchmark(bm_name, b_idx)
 
-    return sg, alt_delimiter
+    return sg, alt_delimiter, bm_idxs
 
 
 def _splitCompareStats_and_renderArgs(
@@ -495,24 +503,31 @@ def _splitCompareStats_and_renderArgs(
 
 
 def showBench(
-    results: np.ndarray,
+    results: np.ndarray | dict[str, np.ndarray],
     *,
-    bm_names: tuple | list | str = "code",
+    bm_names: tuple | list | str | None = "code",
     alt_delimiter: str | None = None,
     metrics: dict = {"mean": np.mean, "min": np.min},
     console: None | LoggingConsole = None,
-    pvalue_stats_bootstrap: int = 100,
+    pvalue_stats_bootstrap: int = 1000,
     pvalue_stats_bootstrap_seed: Any = None,
+    start_with_reshuffled: bool = False,
     show_progress_each: int = 1,
     render_report: bool = True,
+    same_console_for_progress: bool = False,
+    allow_inplace_reshuffle: bool = False,
     **kwCompareStats_and_renderArgs,
 ) -> CompareStatsResult:
     """
     Displays the benchmark results in a human-readable format.
 
     Args:
-    - results (np.ndarray): The benchmark results as a 3D [nfuncs, reps, iters] or 2D [reps, iters]
-        numpy array. Essentially, the output of the bench() function.
+    - results (np.ndarray | dict[str, np.ndarray]): The benchmark results as a 3D
+        [nfuncs, reps, iters] or 2D [reps, iters] numpy array. Essentially, the output of the
+        bench() function.
+        Alternatively, could be a dictionary mapping benchmark names to benchmark results as 2D
+        matrix of potentially different shapes (reps, iters). In that case, `bm_names` must be None
+        and `alt_delimiter` must be a valid delimiter string.
     - bm_names (tuple|list|str, optional) and alt_delimiter: (str|None, optional): defines the
         names of the benchmarks and how they are compared one against the other. Options are:
         - if alt_delimiter is None:
@@ -546,12 +561,28 @@ def showBench(
         assumption of the statistical tests.
         Note that large values like 1000 are computationally expensive, but provide more stable
         results thanks to a better coverage.
+        By default the first comparison is computed on the original results and the rest
+        `pvalue_stats_bootstrap` comparisons are computed on reshuffled results. This can be changed
+        by setting `start_with_reshuffled` to True, which make even the first comparison computed on
+        reshuffled results, doing `pvalue_stats_bootstrap - 1` iterations of bootstrapping in total.
     - pvalue_stats_bootstrap_seed (Any, default None): if pvalue bootstrapping is enabled, this seed
         will initialize the random number generator for bootstrapping.
+    - start_with_reshuffled (bool, False by default): if True and bootstrapping is enabled, even the
+        first comparison will be computed on reshuffled results. Otherwise it is ignored.
+        Note that benchmarking results rendering doesn't currently support judging the comparison
+        result by the p-value statistics (it always use results of the first comparison instead), so
+        it's not recommended to use this option if your code or rendered results interpretation
+        doesn't have an additional logic to take the bootstrapped results into account.
     - show_progress_each - if p-value bootstrapping is enabled and it's a positive integer,
         show progress bars and update them each that many bootstrapping iterations.
+    - same_console_for_progress (bool, False by default): If True, use the same console for progress
+        bar. Useful for using in scripts, but is disabled by default to prevent effect on exported
+        reports.
     - render_report (bool, True by default): If False, only returns CompareStatsResult object,
          but doesn't print the report.
+    - allow_inplace_reshuffle (bool, False by default): If True, allow the `results` to be
+        reshuffled for bootstrapping (or if .ndim < 3 for array argument) in place. Otherwise,
+        a copy of the results is made when necessary.
     - kwCompareStats_and_renderArgs: Any optional arguments of the compareStats()
         or renderComparisonResults() functions. By default compareStats() also gets
         store_sets=True argument, and renderComparisonResults() gets
@@ -567,18 +598,30 @@ def showBench(
                 kwCompareStats_and_renderArgs["debug_log"] = False
     assert console is None or isinstance(console, LoggingConsole)
 
-    if pvalue_stats_bootstrap > 0 or results.ndim == 2:
-        results = results.copy()
-        show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
-        if results.ndim == 2:
-            results = np.expand_dims(results, axis=0)
+    results_is_dict = isinstance(results, dict)
+    if results_is_dict:
+        assert bm_names is None and isinstance(alt_delimiter, str) and len(alt_delimiter) > 0
+        assert all(isinstance(r, np.ndarray) and r.ndim == 2 for r in results.values())
 
-    assert results.ndim == 3, "results must be a 3D numpy array."
+    if not allow_inplace_reshuffle and (
+        pvalue_stats_bootstrap > 0 or (not results_is_dict and results.ndim < 3)
+    ):
+        results = deepcopy(results)
+    if not results_is_dict and results.ndim < 3:
+        results = np.expand_dims(results, axis=0)
+    assert results_is_dict or results.ndim == 3, "results must be a dict or 3D numpy array."
+
+    if pvalue_stats_bootstrap > 0:
+        show_progress = isinstance(show_progress_each, int) and show_progress_each > 0
 
     compStats_args, render_args = _splitCompareStats_and_renderArgs(
         kwCompareStats_and_renderArgs, console
     )
-    resd, alt_delimiter = resultsToDict(results, bm_names, alt_delimiter)
+
+    if results_is_dict:
+        resd = results
+    else:
+        resd, alt_delimiter, bm_idxs = resultsToDict(results, bm_names, alt_delimiter)
 
     def _applyMetrics(r: dict) -> dict:
         return {
@@ -586,24 +629,41 @@ def showBench(
             for bm_name, res in r.items()
         }
 
+    rng = None
+    if pvalue_stats_bootstrap > 0 and start_with_reshuffled:
+        pvalue_stats_bootstrap -= 1
+        if pvalue_stats_bootstrap <= 0 and console is not None:
+            console.warning(
+                "pvalue_stats_bootstrap is 0, so no bootstrapping will be done even though start_with_reshuffled is True."
+            )
+
+        rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
+        for res in resd.values():
+            rng.shuffle(res.reshape(-1))
+
     sg = _applyMetrics(resd)
     sr = compareStats(sg, None, alt_delimiter=alt_delimiter, **compStats_args)
 
     if pvalue_stats_bootstrap > 0:
-        rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
-        reps, iters = results.shape[1:]
+        if rng is None:
+            rng = np.random.default_rng(pvalue_stats_bootstrap_seed)
 
         if show_progress:
-            progress = Progress(transient=True)
+            progress = Progress(
+                transient=True, console=console if same_console_for_progress else None
+            )
             task = progress.add_task("P-value bootstrapping", total=pvalue_stats_bootstrap)
             progress.start()
 
+        bs_compStats_args = compStats_args.copy()
+        bs_compStats_args["store_sets"] = False
+        bs_compStats_args["debug_log"] = False
+
         for i in range(pvalue_stats_bootstrap):
-            for _, res in resd.items():
+            for res in resd.values():
                 rng.shuffle(res.reshape(-1))
-                assert res.shape == (reps, iters)
             sg = _applyMetrics(resd)
-            cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **compStats_args)
+            cs = compareStats(sg, None, alt_delimiter=alt_delimiter, **bs_compStats_args)
             sr.updatePvalStats(cs)
 
             if show_progress and i % show_progress_each == 0:
@@ -611,6 +671,11 @@ def showBench(
 
         if show_progress:
             progress.stop()
+
+    if not results_is_dict:
+        sr.setComparisonIndices({
+            bm_name: (bm_idxs[bm0], bm_idxs[bm1]) for bm_name, (bm0, bm1) in sr.comparisons.items()
+        })
 
     if render_report:
         renderComparisonResults(sr, console=console, **render_args)
@@ -731,32 +796,32 @@ def makeArgumentParser(parser=None, *, allow_exports=True):
         "--iters",
         type=int,
         default=_g_bench_defaults["iters"],
-        help=f"Iterations per repetition (default: {_g_bench_defaults['iters']})",
+        help="Iterations per repetition (default: %(default)s)",
     )
     parser.add_argument(
         "--reps",
         type=int,
         default=_g_bench_defaults["reps"],
-        help=f"Number of repetitions (default: {_g_bench_defaults['reps']})",
+        help="Number of repetitions (default: %(default)s)",
     )
     parser.add_argument(
         "--warmup",
         type=int,
         default=_g_bench_defaults["warmup"],
-        help=f"Number of warmup iterations (default: {_g_bench_defaults['warmup']})",
+        help="Number of warmup iterations (default: %(default)s)",
     )
     parser.add_argument(
         "--batch_functions",
         action=argparse.BooleanOptionalAction,
         default=_g_bench_defaults["batch_functions"],
         help="If true: outer loop - benchmarks, inner loop - iterations. Otherwise reversed: "
-        f"outer loop - iterations, inner loop - benchmarks. (default: {_g_bench_defaults['batch_functions']})",
+        "outer loop - iterations, inner loop - benchmarks. (default: %(default)s)",
     )
     parser.add_argument(
         "--randomize_iterations",
         action=argparse.BooleanOptionalAction,
         default=_g_bench_defaults["randomize_iterations"],
-        help=f"Randomly shuffle benchmarks order (default: {_g_bench_defaults['randomize_iterations']})",
+        help="Randomly shuffle benchmarks order (default: %(default)s)",
     )
 
     parser.add_argument(
@@ -764,7 +829,15 @@ def makeArgumentParser(parser=None, *, allow_exports=True):
         type=int,
         default=_g_showBench_defaults["pvalue_stats_bootstrap"],
         help="Number of iterations for pvalue statistics bootstrapping (default: "
-        f"{_g_showBench_defaults['pvalue_stats_bootstrap']}). Set to 0 to disable.",
+        "%(default)s). Set to 0 to disable.",
+    )
+
+    parser.add_argument(
+        "--start_with_reshuffled",
+        action=argparse.BooleanOptionalAction,
+        default=_g_showBench_defaults["start_with_reshuffled"],
+        help="If true, start even the first pvalue statistics bootstrapping iteration with "
+        "reshuffled results (default: %(default)s).",
     )
 
     if allow_exports:

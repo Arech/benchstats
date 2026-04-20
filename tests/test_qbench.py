@@ -244,10 +244,21 @@ class TestQBench(unittest.TestCase):
             axis=0,
         )
         bm_names = ("alg0|A", "alg0|B", "alg1|A", "alg1|B", "alg2|A", "alg2|B")
-        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
-        assert "<" == sr.results["alg0 | A vs B"]["mean"].result
-        assert ">" == sr.results["alg1 | A vs B"]["mean"].result
-        assert "~" == sr.results["alg2 | A vs B"]["mean"].result
+        cr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == cr.results["alg0 | A vs B"]["mean"].result
+        assert ">" == cr.results["alg1 | A vs B"]["mean"].result
+        assert "~" == cr.results["alg2 | A vs B"]["mean"].result
+        assert cr.at_least_one_differs
+        assert cr.comparisons == {
+            "alg0 | A vs B": ("alg0|A", "alg0|B"),
+            "alg1 | A vs B": ("alg1|A", "alg1|B"),
+            "alg2 | A vs B": ("alg2|A", "alg2|B"),
+        }
+        assert cr.comparison_indices == {
+            "alg0 | A vs B": (0, 1),
+            "alg1 | A vs B": (2, 3),
+            "alg2 | A vs B": (4, 5),
+        }
 
     def test_showBench_one_name(self):
         def_prms = {"render_report": False, "show_progress_each": 0}
@@ -260,10 +271,21 @@ class TestQBench(unittest.TestCase):
             ),
             axis=0,
         )
-        sr = qb.showBench(results, bm_names="code", **def_prms)
-        assert "<" == sr.results["code | 0 vs 1"]["mean"].result
-        assert ">" == sr.results["code | 1 vs 2"]["mean"].result
-        assert ">" == sr.results["code | 0 vs 2"]["mean"].result
+        cr = qb.showBench(results, bm_names="code", **def_prms)
+        assert "<" == cr.results["code | 0 vs 1"]["mean"].result
+        assert ">" == cr.results["code | 1 vs 2"]["mean"].result
+        assert ">" == cr.results["code | 0 vs 2"]["mean"].result
+        assert cr.at_least_one_differs
+        assert cr.comparisons == {
+            "code | 0 vs 1": ("code|0", "code|1"),
+            "code | 1 vs 2": ("code|1", "code|2"),
+            "code | 0 vs 2": ("code|0", "code|2"),
+        }
+        assert cr.comparison_indices == {
+            "code | 0 vs 1": (0, 1),
+            "code | 1 vs 2": (1, 2),
+            "code | 0 vs 2": (0, 2),
+        }
 
     def test_showBench_tuple(self):
         def_prms = {"render_report": False, "show_progress_each": 0}
@@ -280,10 +302,21 @@ class TestQBench(unittest.TestCase):
             axis=0,
         )
         bm_names = ("alg0", "alg1", "alg2")
-        sr = qb.showBench(results, bm_names=bm_names, **def_prms)
-        assert "<" == sr.results["alg0 | 0 vs 1"]["mean"].result
-        assert ">" == sr.results["alg1 | 0 vs 1"]["mean"].result
-        assert "~" == sr.results["alg2 | 0 vs 1"]["mean"].result
+        cr = qb.showBench(results, bm_names=bm_names, **def_prms)
+        assert "<" == cr.results["alg0 | 0 vs 1"]["mean"].result
+        assert ">" == cr.results["alg1 | 0 vs 1"]["mean"].result
+        assert "~" == cr.results["alg2 | 0 vs 1"]["mean"].result
+        assert cr.at_least_one_differs
+        assert cr.comparisons == {
+            "alg0 | 0 vs 1": ("alg0|0", "alg0|1"),
+            "alg1 | 0 vs 1": ("alg1|0", "alg1|1"),
+            "alg2 | 0 vs 1": ("alg2|0", "alg2|1"),
+        }
+        assert cr.comparison_indices == {
+            "alg0 | 0 vs 1": (0, 1),
+            "alg1 | 0 vs 1": (2, 3),
+            "alg2 | 0 vs 1": (4, 5),
+        }
 
     def test_showBench_pvalue_stats_bootstrap(self):
         r = np.array([[[1, 3, 3], [1, 3, 3]], [[1, 2, 2], [1, 2, 2]]])
@@ -294,6 +327,7 @@ class TestQBench(unittest.TestCase):
             render_report=False,
             console=None,
             show_progress_each=0,
+            start_with_reshuffled=False,
         )
         # seed is chosen to modify the first bootstrap result and produce the same second result
 
