@@ -1,6 +1,16 @@
+# 3.4.0
+- `qbench.showBench()` can take benchmark results as a dict of per-name 2D `[reps, iters]` arrays
+(with `bm_names=None` and a non-empty `alt_delimiter`), not only a single 3D numpy stack.
+- `qbench.showBench()` gained `allow_inplace_reshuffle`: opt in to allow in-place shuffling/copy
+avoidance when bootstrapping or normalizing inputs, instead of always working on a private copy.
+- Restored default value for `qbench.showBench(pvalue_stats_bootstrap=)` to 1000.
+- `CompareStatsResult` now exposes `comparisons` (which original benchmark names each row compares)
+and `comparison_indices` (which rows of the stacked `showBench` input they correspond to; absent
+for dict-input mode), for easier downstream automation.
+
 # 3.3.3
 - breaking change, though unlikely important for anyone: due to T-test also being affected by
-bad date, renamed `compareStats()` parameter `brunnermunzel_workaround` to `edge_cases_workaround`
+bad data, had to rename `compareStats()`'s parameter `brunnermunzel_workaround` to `edge_cases_workaround`
 and extended its effect on t-test.
 - Fix `_at_least_one_differs` flag handling in `CompareStatsResult::updatePvalStats()`.
 

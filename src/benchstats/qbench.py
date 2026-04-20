@@ -509,7 +509,7 @@ def showBench(
     alt_delimiter: str | None = None,
     metrics: dict = {"mean": np.mean, "min": np.min},
     console: None | LoggingConsole = None,
-    pvalue_stats_bootstrap: int = 100,
+    pvalue_stats_bootstrap: int = 1000,
     pvalue_stats_bootstrap_seed: Any = None,
     start_with_reshuffled: bool = False,
     show_progress_each: int = 1,
@@ -796,32 +796,32 @@ def makeArgumentParser(parser=None, *, allow_exports=True):
         "--iters",
         type=int,
         default=_g_bench_defaults["iters"],
-        help=f"Iterations per repetition (default: {_g_bench_defaults['iters']})",
+        help="Iterations per repetition (default: %(default)s)",
     )
     parser.add_argument(
         "--reps",
         type=int,
         default=_g_bench_defaults["reps"],
-        help=f"Number of repetitions (default: {_g_bench_defaults['reps']})",
+        help="Number of repetitions (default: %(default)s)",
     )
     parser.add_argument(
         "--warmup",
         type=int,
         default=_g_bench_defaults["warmup"],
-        help=f"Number of warmup iterations (default: {_g_bench_defaults['warmup']})",
+        help="Number of warmup iterations (default: %(default)s)",
     )
     parser.add_argument(
         "--batch_functions",
         action=argparse.BooleanOptionalAction,
         default=_g_bench_defaults["batch_functions"],
         help="If true: outer loop - benchmarks, inner loop - iterations. Otherwise reversed: "
-        f"outer loop - iterations, inner loop - benchmarks. (default: {_g_bench_defaults['batch_functions']})",
+        "outer loop - iterations, inner loop - benchmarks. (default: %(default)s)",
     )
     parser.add_argument(
         "--randomize_iterations",
         action=argparse.BooleanOptionalAction,
         default=_g_bench_defaults["randomize_iterations"],
-        help=f"Randomly shuffle benchmarks order (default: {_g_bench_defaults['randomize_iterations']})",
+        help="Randomly shuffle benchmarks order (default: %(default)s)",
     )
 
     parser.add_argument(
@@ -829,7 +829,15 @@ def makeArgumentParser(parser=None, *, allow_exports=True):
         type=int,
         default=_g_showBench_defaults["pvalue_stats_bootstrap"],
         help="Number of iterations for pvalue statistics bootstrapping (default: "
-        f"{_g_showBench_defaults['pvalue_stats_bootstrap']}). Set to 0 to disable.",
+        "%(default)s). Set to 0 to disable.",
+    )
+
+    parser.add_argument(
+        "--start_with_reshuffled",
+        action=argparse.BooleanOptionalAction,
+        default=_g_showBench_defaults["start_with_reshuffled"],
+        help="If true, start even the first pvalue statistics bootstrapping iteration with "
+        "reshuffled results (default: %(default)s).",
     )
 
     if allow_exports:
