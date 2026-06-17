@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 import numpy as np
 import rich
+import rich.table
 from rich.text import Text
 import math
 
