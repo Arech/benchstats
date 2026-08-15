@@ -74,21 +74,31 @@ def detectExportFormat(export_to, export_fmt):
 class LoggingConsole(rich.console.Console):
     # @enum.verify(enum.CONTINUOUS)  # not supported by Py 3.10
     class LogLevel(enum.IntEnum):
-        Debug = (0,)
-        Info = (1,)
-        Warning = (2,)
-        Error = (3,)
-        Failure = (4,)
-        Critical = 5
+        Trace = 0
+        Debug = 1
+        Info = 2
+        Warning = 3
+        Error = 4  # recoverable
+        Failure = 5  # non-recoverable, can continue working
+        Critical = 6  # non-recoverable, must abort
 
     def __init__(self, log_level: LogLevel = LogLevel.Debug, **kwargs):
         assert isinstance(log_level, LoggingConsole.LogLevel)
         self.log_level = log_level
+        self._n_errors: int = 0
         if "emoji" not in kwargs:
             kwargs["emoji"] = False
         if "highlight" not in kwargs:
             kwargs["highlight"] = False
         super().__init__(**kwargs)
+
+    def cleanNumErrors(self) -> int:
+        r = self._n_errors
+        self._n_errors = 0
+        return r
+
+    def getNumErrors(self) -> int:
+        return self._n_errors
 
     def _do_log(self, color: str, lvl: str, *args, **kwargs):
         if "sep" in kwargs:
@@ -98,15 +108,23 @@ class LoggingConsole(rich.console.Console):
             kwargs["sep"] = sep
         return super().print(f"[[{color}]{lvl:4s}[/{color}]]{sep}", *args, **kwargs)
 
+    def will_log(self, level) -> bool:
+        return self.log_level <= level
+
+    def trace(self, *args, **kwargs):
+        if self.log_level > LoggingConsole.LogLevel.Trace:
+            return None
+        return self._do_log("blue", "trce", *args, **kwargs)
+
     def debug(self, *args, **kwargs):
         if self.log_level > LoggingConsole.LogLevel.Debug:
             return None
-        return self._do_log("gray", "dbg", *args, **kwargs)
+        return self._do_log("bright_black", "dbg", *args, **kwargs)
 
     def info(self, *args, **kwargs):
         if self.log_level > LoggingConsole.LogLevel.Info:
             return None
-        return self._do_log("white", "info", *args, **kwargs)
+        return self._do_log("bright_white", "info", *args, **kwargs)
 
     def warning(self, *args, **kwargs):
         if self.log_level > LoggingConsole.LogLevel.Warning:
@@ -114,19 +132,22 @@ class LoggingConsole(rich.console.Console):
         return self._do_log("yellow", "warn", *args, **kwargs)
 
     def error(self, *args, **kwargs):
+        self._n_errors += 1
         if self.log_level > LoggingConsole.LogLevel.Error:
             return None
-        return self._do_log("orange", "Err", *args, **kwargs)
+        return self._do_log("red", "Err", *args, **kwargs)
 
     def failure(self, *args, **kwargs):
+        self._n_errors += 1
         if self.log_level > LoggingConsole.LogLevel.Failure:
             return None
-        return self._do_log("red", "FAIL", *args, **kwargs)
+        return self._do_log("bright_red", "FAIL", *args, **kwargs)
 
     def critical(self, *args, **kwargs):
+        self._n_errors += 1
         if self.log_level > LoggingConsole.LogLevel.Critical:
             return None
-        return self._do_log("magenta", "CRIT", *args, **kwargs)
+        return self._do_log("bright_magenta", "CRIT", *args, **kwargs)
 
 
 def bmNamesTransform(
