@@ -241,7 +241,7 @@ class parser_single(ParserBase):
         return self.stats
 
     def getAltDelimiter(self) -> str | None:
-        return "|"  # returning a string is what enables single source mode.
+        return "|"  # returning a string is what enables the single-source mode.
         # note that this string is used to separate benchmark name from the
         # alternative in the `self.stats` dictionary.
 ```
