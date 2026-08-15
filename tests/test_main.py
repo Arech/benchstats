@@ -65,6 +65,27 @@ class TestMain(unittest.TestCase):
                     assert " ~ " in l
         assert ntests == 4
 
+    def test_load_parser_by_package_name(self):
+        args = [
+            os.path.join(_this_file_dir, "data/f1.csv"),
+            os.path.join(_this_file_dir, "data/f2.csv"),
+            "--files_parser",
+            "benchstats.parser_SingleColumnCSV",
+        ]
+        res = run(args)
+        #print(res.stdout)
+        #print(res.stderr)
+        self.assertEqual(res.returncode, 1)
+        assert "Benchmark comparison results (Brunner Munzel test, alpha=0.00100)" in res.stdout
+        assert "At least one significant difference in main metrics was detected." in res.stdout
+        ntests = 0
+        for l in res.stdout.splitlines():
+            if "(1000 vs 1000)" in l:
+                ntests += 1
+                if "bm" in l:
+                    assert " < " in l
+        assert ntests == 1
+
 
 if __name__ == "__main__":
     import sys

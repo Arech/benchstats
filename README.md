@@ -306,7 +306,7 @@ transformed.
                     See also `--file1_parser` and `--filter1` arguments.
 - `<path/to/file2>` Path to the second data file with benchmark results if a two-source comparison mode is used.
                     See also `--file2_parser` and `--filter2` arguments
-- `--files_parser <files parser class or path>` Sets files parser class identifier, if a built-in parser is used (options are: `GbenchJson`). Or sets a path to `.py` file defining a custom parser, inherited from `benchstats.common.ParserBase` class. For the details of custom data loaders consult the relevant readme section.
+- `--files_parser <files parser class or path>` Sets files parser class identifier, if a built-in parser is used (options are: `GbenchJson` and `SingleColumnCSV`). Or sets a path to `.py` file defining a custom parser, inherited from `benchstats.common.ParserBase` class. For the details of custom data loaders consult the relevant readme section. Can also be a fully qualified Python import path of the parser class's module, such as `benchstats.parser_SingleColumnCSV` for the same inbuilt `SingleColumnCSV` parser (the module name must be the same as the parser class name).
 - `--file1_parser <file1 parser class or path>` Same as `--files_parser`, but only applies to `file1`.
 - `--filter1 <reg expr>` If specified, sets a string to pass as file1 parser's `filter` argument. For the inbuilt `GbenchJson` parser it's a Python regular expression to select benchmarks by name from `<file1>`
 - `--file2_parser <file2 parser class or path>` Same as --files_parser, but only applies to `file2`.

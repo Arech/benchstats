@@ -4,7 +4,10 @@ having all information about all benchmarks across all contenders. This enables 
 `--file1_parser`'s `getAltDelimiter()` method returns a string, the string is used as
 an alternatives delimiter. For the details, see `alt_delimiter=` parameter of
 `benchstats.compare.compareStats()`.
-- main() now meaningfully supports external invocation.
+- CLI tool now supports a fully qualified Python import path of the parser's module for `--parser...` flags. For example,
+one could use `benchstats.parser_SingleColumnCSV` to reference the same inbuilt `SingleColumnCSV`. Useful for utilizing parsers from other packages.
+- tests + code improvements related to parsers loading.
+- `main()` now meaningfully supports external invocation.
 
 # 3.4.0
 - `qbench.showBench()` can take benchmark results as a dict of per-name 2D `[reps, iters]` arrays

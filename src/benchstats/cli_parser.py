@@ -104,7 +104,10 @@ def getAltDelimiter(self) -> str | None:
         help="Sets files parser class identifier, if a built-in parser is used (options are: "
         f"{', '.join(getBuiltinParsers())}). Or sets a path to .py file defining a custom parser, "
         "inherited from 'benchstats.common.ParserBase' class. The parser class name must be the "
-        "same as the file name. See below for an example.",
+        "same as the file name. See below for an example.\n"
+        "Can also be a fully qualified Python import path of the parser class's module, such as "
+        "'benchstats.parser_SingleColumnCSV' for the same inbuilt `SingleColumnCSV` parser. "
+        "The module name must be the same as the parser class name.",
         default="GbenchJson",
         metavar="<files parser class or path>",
     )

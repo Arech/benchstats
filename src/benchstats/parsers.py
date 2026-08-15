@@ -1,6 +1,7 @@
 """Parsers management"""
 
 import os
+import importlib
 import importlib.util
 import sys
 from glob import glob
@@ -31,7 +32,7 @@ def _getBuiltinParserFileFor(parser_id: str) -> str | None:
     return None
 
 
-def _loadParserFrom(fpath: str):
+def _loadParserFromFile(fpath: str):
     module_name = os.path.splitext(os.path.basename(fpath))[0]
     spec = importlib.util.spec_from_file_location(module_name, fpath)
     if spec is None:
@@ -47,8 +48,33 @@ def _loadParserFrom(fpath: str):
         )
 
     parser = getattr(module, module_name)
+    if not isinstance(parser, type) or not issubclass(parser, ParserBase):
+        raise ValueError("Parsers must derive from benchstats.common.ParserBase")
 
-    if not issubclass(parser, ParserBase):
+    return parser
+
+
+def _loadParserFromImportPath(import_path: str):
+    """Load a parser class from a dotted import path, e.g. 'benchstats.parser_SingleColumnCSV'."""
+    assert isinstance(import_path, str) and len(import_path) > 0
+    if "." not in import_path:
+        raise ValueError(
+            f"Import path '{import_path}' must be a dotted module path (e.g. 'benchstats.parser_SingleColumnCSV')"
+        )
+
+    try:
+        module = importlib.import_module(import_path)
+    except ImportError as e:
+        raise ValueError(f"Can't import parser module '{import_path}'") from e
+
+    class_name = import_path.rsplit(".", 1)[-1]
+    if not hasattr(module, class_name):
+        raise ValueError(
+            f"Parser module '{import_path}' must define `class {class_name}(ParserBase)` with parser implementation."
+        )
+
+    parser = getattr(module, class_name)
+    if not isinstance(parser, type) or not issubclass(parser, ParserBase):
         raise ValueError("Parsers must derive from benchstats.common.ParserBase")
 
     return parser
@@ -63,6 +89,10 @@ def getParserFor(id_or_filepath: str):
     builtin_path = _getBuiltinParserFileFor(id_or_filepath)
 
     if builtin_path is None and not os.path.isfile(id_or_filepath):
+        # not a built in and not a file. Try to import as module
+        if "." in id_or_filepath and not id_or_filepath.endswith(".py"):
+            return _loadParserFromImportPath(id_or_filepath)
+
         raise ValueError(f"Can't load parser from a non-existing file '{id_or_filepath}'")
 
-    return _loadParserFrom(id_or_filepath if builtin_path is None else builtin_path)
+    return _loadParserFromFile(id_or_filepath if builtin_path is None else builtin_path)
