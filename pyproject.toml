@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "benchstats"
 dynamic = ["version"]
-description = "Statistical Testing & Reporting CLI Tool And Python Package. Primarily For Benchmark Results Comparison, But You Choose"
+description = "Statistical testing & reporting CLI tool and Python package. Primarily for benchmark results comparison, but you can plug in any data source with ease."
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
 license = "MIT"

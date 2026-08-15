@@ -2,7 +2,6 @@
 
 ![MIT License](https://img.shields.io/github/license/arech/benchstats)
 ![Status Stable](https://img.shields.io/pypi/status/benchstats)
-![Supported Python Versions](https://img.shields.io/pypi/pyversions/benchstats)
 ![PyPI Version](https://img.shields.io/pypi/v/benchstats)
 
 `benchstats` is a Python CLI tool and a package for running statistical tests
