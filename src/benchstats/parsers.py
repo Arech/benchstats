@@ -34,11 +34,23 @@ def _getBuiltinParserFileFor(parser_id: str) -> str | None:
 def _loadParserFrom(fpath: str):
     module_name = os.path.splitext(os.path.basename(fpath))[0]
     spec = importlib.util.spec_from_file_location(module_name, fpath)
+    if spec is None:
+        raise ValueError(f"Can't read parser from file '{fpath}'")
+
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+
+    if not hasattr(module, module_name):
+        raise ValueError(
+            f"Parser file '{fpath}' must define `class {module_name}(ParserBase)` with parser implementation."
+        )
+
     parser = getattr(module, module_name)
-    assert issubclass(parser, ParserBase), "Parsers must derive from benchstats.common.ParserBase"
+
+    if not issubclass(parser, ParserBase):
+        raise ValueError("Parsers must derive from benchstats.common.ParserBase")
+
     return parser
 
 
@@ -49,4 +61,8 @@ def getParserFor(id_or_filepath: str):
 
     # first always test built-in parsers. For them we could compare ignoring case
     builtin_path = _getBuiltinParserFileFor(id_or_filepath)
+
+    if builtin_path is None and not os.path.isfile(id_or_filepath):
+        raise ValueError(f"Can't load parser from a non-existing file '{id_or_filepath}'")
+
     return _loadParserFrom(id_or_filepath if builtin_path is None else builtin_path)

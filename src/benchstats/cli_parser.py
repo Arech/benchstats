@@ -21,17 +21,50 @@ from benchstats.common import ParserBase
 
 class myCSV(ParserBase):
     def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
+        # note that `filter` value is passed from `--filter1` as it is, so one
+        # can treat it wider, as an arbitrary user-controllable parametrization
+        # of the parser
         self.stats = np.loadtxt(fpath, dtype=np.float64)
 
     def getStats(self) -> dict[str, dict[str, np.ndarray]]:
         return {"bm": {"real_time": self.stats}}
+        # the outer dictionary define benchmark_name -> data mapping, while
+        # the inner data dictionary maps metric_name -> 1d_array of numbers to
+        # compare. There can be as many benchmarks and metrics as needed.
 
 """
-        "It doesn't support filtering, different benchmarks and the metric is hardcoded - but you "
+        "This example doesn't support filtering, different benchmarks and the metric is hardcoded - but you "
         "get the idea. It's that simple.\n"
         "Now to compare two datasets in csvs, just run:\n"
         "python -m benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py\n\n"
-        "If you'll make a parser that could be useful to other people, please consider adding it "
+        "myCSV parser works in so called two-sources mode. It compares all the benchmarks defined "
+        "in the first source to the respective results defined in the second source. Sometimes "
+        "it's more convenient to work with a single source, or to run 3-,4-,N-way comparisons. "
+        "That is possible in a single-source mode. Here's a mock of a parser that produces "
+        "2- and 3-way comparisons:\n\n"
+        """class parser_single(ParserBase):
+def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
+    def _gen(ofs=0.0):
+        return np.random.default_rng().uniform(ofs, 1.0 + ofs, size=1000)
+
+    self.stats = {
+        "bm1|var1": {"real_time": _gen()},
+        "bm1|var2": {"real_time": _gen(0.1)},
+        "bm2|opt1": {"real_time": _gen()},
+        "bm2|opt2": {"real_time": _gen()},
+        "bm2|opt3": {"real_time": _gen()},
+    }
+
+def getStats(self) -> dict[str, dict[str, np.ndarray]]:
+    return self.stats
+
+def getAltDelimiter(self) -> str | None:
+    return "|"  # returning a string is what enables single source mode.
+    # note that this string is used to separate benchmark name from the
+    # alternative in the `self.stats` dictionary.
+
+"""
+        "If you make a parser that could be useful to other people, please consider adding it "
         "to the project's built-in parsers set by opening a thread with a suggestion in "
         "https://github.com/Arech/benchstats/issues or by making a PR into the repo.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -58,9 +91,12 @@ class myCSV(ParserBase):
 
     g_inputs.add_argument(
         "file2",
-        help="Path to the second data file with benchmark results. See also --file2_parser and "
-        "--filter2 arguments",
+        help="For two-source comparison mode this sets a path to the second data file with "
+        "benchmark results. See also --file2_parser and --filter2 arguments.\n"
+        "`getAltDelimiter()` method of the --files_parser/--file1_parser sets the comparison mode.",
         metavar="<path/to/file2>",
+        nargs='?',
+        default=None,
     )
 
     g_inputs.add_argument(
@@ -82,7 +118,8 @@ class myCSV(ParserBase):
 
     g_inputs.add_argument(
         "--filter1",
-        help="If specified, sets a Python regular expression (see "
+        help="If specified, sets a string to pass as file1 parser's `filter` argument.\n"
+        "For the inbuilt Google Benchmark JSON parser, it's a Python regular expression (see "
         "https://docs.python.org/3/howto/regex.html#regex-howto) to select benchmarks by name "
         "from <file1>",
         metavar="<reg expr>",

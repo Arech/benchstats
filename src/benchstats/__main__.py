@@ -38,10 +38,13 @@ def main(args: argparse.Namespace | None = None) -> int:
         return 2
 
     Parser1 = getParserFor(args.files_parser if args.file1_parser is None else args.file1_parser)
-    Parser2 = getParserFor(args.files_parser if args.file2_parser is None else args.file2_parser)
+    source1 = Parser1(args.file1, args.filter1, args.metrics, debug_log=console)
 
-    s1 = Parser1(args.file1, args.filter1, args.metrics, debug_log=console).getStats()
-    s2 = Parser2(args.file2, args.filter2, args.metrics, debug_log=console).getStats()
+    alt_delimiter = source1.getAltDelimiter()
+    two_sources_mode = alt_delimiter is None
+
+    s1 = source1.getStats()
+    del source1
 
     s1 = bmNamesTransform(
         s1,
@@ -50,13 +53,42 @@ def main(args: argparse.Namespace | None = None) -> int:
         1,
         console,
     )
-    s2 = bmNamesTransform(
-        s2,
-        getattr(args, "from") if args.from2 is None else args.from2,
-        args.to if args.to2 is None else args.to2,
-        2,
-        console,
-    )
+
+    if two_sources_mode:
+        if not args.file2:
+            raise ValueError(
+                "File1 parser set two sources comparison mode, the second source is needed!"
+            )
+
+        Parser2 = getParserFor(
+            args.files_parser if args.file2_parser is None else args.file2_parser
+        )
+        source2 = Parser2(args.file2, args.filter2, args.metrics, debug_log=console)
+        assert source2.getAltDelimiter() is None, (
+            "Parser2 is incompatible with two sources comparison mode"
+        )
+
+        s2 = source2.getStats()
+        del source2
+
+        s2 = bmNamesTransform(
+            s2,
+            getattr(args, "from") if args.from2 is None else args.from2,
+            args.to if args.to2 is None else args.to2,
+            2,
+            console,
+        )
+    else:
+        if args.file2 or args.file2_parser or args.filter2 or args.from2 or args.to2:
+            raise ValueError(
+                "File1 parser set single source comparison mode, the second source and its arguments aren't supported"
+            )
+
+        if not isinstance(alt_delimiter, str) or not alt_delimiter:
+            raise ValueError(
+                "Invalid parser for file1, getAltDelimiter() must return None or a non empty string"
+            )
+        s2 = None
 
     alpha = args.alpha
     if args.bonferroni:
@@ -76,6 +108,7 @@ def main(args: argparse.Namespace | None = None) -> int:
         method=args.method,
         main_metrics=main_metrics,
         alpha=alpha,
+        alt_delimiter=alt_delimiter,
         debug_log=console,
         store_sets=args.sample_stats is not None,
     )

@@ -1,13 +1,21 @@
 # Statistical Testing for Benchmark Results Comparison
 
-`benchstats` is a Python 3.10+ package for performing comparison of benchmarking results<sup>*</sup>
-using proper statistical tests and making a readable report on that. This removes guesswork and WAGs
-from interpretation of benchmarking results, and gets a solid<sup>**</sup> answer to a question "is
-the algorithm implementation A is faster than the algorithm implementation B".
+![MIT License](https://img.shields.io/github/license/arech/benchstats)
+![Status Stable](https://img.shields.io/pypi/status/benchstats)
+![Supported Python Versions](https://img.shields.io/pypi/pyversions/benchstats)
+![PyPI Version](https://img.shields.io/pypi/v/benchstats)
 
-Module has a CLI support to operate on data files, and a `benchstats.qbench` submodule has helper
-methods for benchmarking of Python callables (see a corresponding section at the end of this README
-for the latter).
+`benchstats` is a Python CLI tool and a package for running statistical tests
+of benchmarking results<sup>*</sup> and making readable reports on that. This is useful since
+it removes a guesswork and WAGs from interpretation of benchmarking results, and produces
+a solid<sup>**</sup> answer to a question "is the algorithm implementation A is faster
+than the algorithm implementation B".
+
+The CLI tool can operate on any data sources using custom parsers (data loaders). It
+automatically supports N-way comparisons (the CLI tool needs a custom parser for that,
+but with a help of AI it's easy to make even if you never used Python before).
+A `benchstats.qbench` submodule has helper methods for benchmarking Python callables
+(see a corresponding section at the end of this README for the latter).
 
 Code that reads input data, perform statistical testing and then visualize results is coupled only by
 shared data types, so it could easily be used separately if needed (for example, to build a
@@ -158,7 +166,7 @@ Any python class (a parser) named X, that:
 - can be instantiated with the following 4 parameters:
     1. `source_id` - a string identifier, describing a data source within parser's controlled namespace. It's is obtained as the first or the second positional argument of `benchstats` module CLI.
         - In the examples above, for the built-in `parser_GbenchJson` this is a source file name.
-    2. `filter` - a string identifier of a filter, used to restrict a set of benchmarks to load. Obtained as a value of `--filter1` or `--filter2` CLI flags.
+    2. `filter` - a general purpose user-supplied string parameter, typically an identifier of a filter, used to restrict a set of benchmarks to load, but can be anything. Passed from `--filter1` or `--filter2` CLI flags without validation.
         - for the built-in `parser_GbenchJson` it's a string with regular expression to use for filtering benchmark names.
     3. `metrics` - is a non-empty list or a tuple of string identifiers, corresponding to metrics to read for benchmarks. Obtained from third and subsequent CLI positional arguments.
     4. `debug_log` - an instance of `benchstats.common.LoggingConsole` class that provides a
@@ -166,11 +174,15 @@ Any python class (a parser) named X, that:
     values and `bool` values and instantiate a `LoggingConsole` on its own, but support for this
     isn't needed for a custom parser)</small>
 - has a `def getStats(self)` method returning a dictionary that maps strings describing benchmark names to dictionaries linking metric names with `np.ndarray()` of metric values.
+- has an optional `def getAltDelimiter(self) -> str | None:` method, that when returns a string, make the CLI tool to use
+that string as a benchmark alternative separator in a single-source comparison mode. By default, the base class implementation returns `None`, choosing a two-source comparison mode.
 - is saved to a file `X.py`
 
 can be used as a custom data source for `benchstats` CLI. Just pass a path to the `X.py` as value of `--files_parser` argument (or `--file1_parser` or `--file2_parser` if you want to use different parsers for source1 and source2)
 
 ### The simplest example of a custom data source
+
+#### Two-sources comparison mode
 
 Imagine you have a one-column CSV with data on which you want to run a statistical significance test. Save the following to `./myCSV.py`:
 
@@ -180,13 +192,19 @@ from benchstats.common import ParserBase
 
 class myCSV(ParserBase):
     def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
+        # note that `filter` value is passed from `--filter1` as it is, so one
+        # can treat it wider, as an arbitrary user-controllable parametrization
+        # of the parser
         self.stats = np.loadtxt(fpath, dtype=np.float64)
 
     def getStats(self) -> dict[str, dict[str, np.ndarray]]:
         return {"bm": {"real_time": self.stats}}
+        # the outer dictionary define benchmark_name -> data mapping, while
+        # the inner data dictionary maps metric_name -> 1d_array of numbers to
+        # compare. There can be as many benchmarks and metrics as needed.
 ```
 
-There's always only one benchmark name `bm` hardcoded, and only one metric `real_time` that is read from CSV, but you get the idea. It's that simple.
+There's only one benchmark name `bm` hardcoded, and only one metric `real_time` that is read from CSV, but you get the idea. It's that simple.
 
 Now just run `benchstats` passing a path to the parser in `--files_parser` flag:
 
@@ -194,11 +212,60 @@ Now just run `benchstats` passing a path to the parser in `--files_parser` flag:
 benchstats ./src1.csv ./src2.csv --files_parser ./myCSV.py
 ```
 
+This mode compares all the benchmarks defined in the first source to the respective results defined
+in the second source, so such mode is called Two-source comparison mode
+
+#### Single-source comparison mode
+
+While two-sources comparison mode is super useful, sometimes it's convenient to work with a single
+source. A much more important deficiency of two-sources mode is that is doesn't
+support 3-,4-,N-way comparisons, but that's where a single source mode becomes handy.
+
+The following mock of a parser shows how to arrange 2- and 3-way comparisons:
+
+```python
+class parser_single(ParserBase):
+    def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
+        def _gen(ofs=0.0):
+            return np.random.default_rng().uniform(ofs, 1.0 + ofs, size=1000)
+
+        self.stats = {
+            "bm1|var1": {"real_time": _gen()},
+            "bm1|var2": {"real_time": _gen(0.1)},
+            "bm2|opt1": {"real_time": _gen()},
+            "bm2|opt2": {"real_time": _gen()},
+            "bm2|opt3": {"real_time": _gen()},
+        }
+
+    def getStats(self) -> dict[str, dict[str, np.ndarray]]:
+        return self.stats
+
+    def getAltDelimiter(self) -> str | None:
+        return "|"  # returning a string is what enables single source mode.
+        # note that this string is used to separate benchmark name from the
+        # alternative in the `self.stats` dictionary.
+```
+
+Running with this parser (something like `benchstats anyfile --files_parser parser_single.py`) produce
+the required 2- and 3-way comparison:
+
+```
+     Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
+┏━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Benchmark          ┃ real_time (means)                                   ┃
+┡━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ bm1 | var1 vs var2 │ 499.7ms < 605.6ms {+21.2%} p=0.00000+(1000 vs 1000) │
+│ bm2 | opt1 vs opt2 │ 509.6ms ~ 493.4ms {-3.2%}           (1000 vs 1000)  │
+│ bm2 | opt1 vs opt3 │ 509.6ms ~ 502.6ms {-1.4%}           (1000 vs 1000)  │
+│ bm2 | opt2 vs opt3 │ 493.4ms ~ 502.6ms {+1.9%}           (1000 vs 1000)  │
+└────────────────────┴─────────────────────────────────────────────────────┘
+```
+
 If you make a parser that might be usable by other people, please consider adding it to the project's built-in parsers set by opening a thread with a suggestion in https://github.com/Arech/benchstats/issues or by making a PR into the repo.
 
 ## Command Line Interface Reference
 
-You can always get actual CLI help output by passing `--help` flag to the invocation of `benchstats`. Note that `--help` output has precedence over the description below.
+Always prefer to get actual CLI help output by passing `--help` flag to the invocation of `benchstats`. `--help` output has precedence over the description below.
 
 ```
 usage: __main__.py [-h] [--show_debug | --no-show_debug]
@@ -237,11 +304,11 @@ transformed.
 
 - `<path/to/file1>` Path to the first data file with benchmark results.
                     See also `--file1_parser` and `--filter1` arguments.
-- `<path/to/file2>` Path to the second data file with benchmark results.
+- `<path/to/file2>` Path to the second data file with benchmark results if a two-source comparison mode is used.
                     See also `--file2_parser` and `--filter2` arguments
-- `--files_parser <files parser class or path>` Sets files parser class identifier, if a built-in parser is used (options are: `GbenchJson`). Or sets a path to `.py` file defining a custom parser, inherited from `benchstats.common.ParserBase` class. The parser class name must be the same as the file name.
+- `--files_parser <files parser class or path>` Sets files parser class identifier, if a built-in parser is used (options are: `GbenchJson`). Or sets a path to `.py` file defining a custom parser, inherited from `benchstats.common.ParserBase` class. For the details of custom data loaders consult the relevant readme section.
 - `--file1_parser <file1 parser class or path>` Same as `--files_parser`, but only applies to `file1`.
-- `--filter1 <reg expr>` If specified, sets a Python regular expression to select benchmarks by name from `<file1>`
+- `--filter1 <reg expr>` If specified, sets a string to pass as file1 parser's `filter` argument. For the inbuilt `GbenchJson` parser it's a Python regular expression to select benchmarks by name from `<file1>`
 - `--file2_parser <file2 parser class or path>` Same as --files_parser, but only applies to `file2`.
 - `--filter2 <reg expr>` Same as `--filter1`, but for `<file2>`
 - `--from <reg expr>` Arguments `--from` and `--to` works in a pair and are used to describe benchmark names transformation. `--from` sets a regular expression (Python re module flavor) to define a pattern to replace to `--to` replacement string. Typical use-cases include removing unnecessary parts of benchmark names (for example, Google Benchmark adds some suffixes that might not convey useful information) or "glueing" results of different benchmarks so they become comparable by the tool (for example, you have two benchmarks, the first is 'old_foo' with old algorithm implementation and the other is 'foo' with a new competing algorithm implementation, - to compare their performance against each other, you need to remove 'old_' prefix from the first benchmark with `--from old_` and apply `--filter1` and `--filter2` to restrict loading only corresponding data for old or new variations). Remember to escape characters that have special meaning for the shell.

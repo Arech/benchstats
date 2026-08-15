@@ -36,6 +36,24 @@ class ParserBase:
         """
         raise RuntimeError("DERIVED CLASS MUST IMPLEMENT METHOD")
 
+    def getAltDelimiter(self) -> str | None:
+        """Sets comparison mode and returns benchmark <name>|<variant> delimiter.
+
+        If a parser class returns None from this method, this sets two sources
+        comparison mode, i.e. it makes benchstats CLI tool expect that user supplies file1
+        and file2, each containing data_set1 or data_set2 data respectively. The tool
+        must compare data from data_set1 to a matching data in data_set2.
+
+        If a parser class returns a string from this method, this sets a single source
+        comparison method, where the string defines a delimiter substring in a benchmark name
+        that separates the benchmark identifier from the variant identifier. For details,
+        see the docstring of benchstats.compare.compareStats(), especially a description of
+        the alt_delimiter= argument.
+        Note that such types of a parser is only supported for `--file_parser` of `--file1_parser`
+        CLI arguments.
+        """
+        return None
+
 
 def detectExportFormat(export_to, export_fmt):
     assert (export_to is None and export_fmt is None) or (
@@ -45,16 +63,15 @@ def detectExportFormat(export_to, export_fmt):
 
     if export_to is not None and export_fmt is None:
         root, ext = os.path.splitext(export_to)
-        assert ext in [
-            "." + e for e in kAvailableFormats
-        ], f"Unrecognized export file extension '{ext}' of a file in --export_to parameter"
+        assert ext in ["." + e for e in kAvailableFormats], (
+            f"Unrecognized export file extension '{ext}' of a file in --export_to parameter"
+        )
         export_fmt = ext[1:]
 
     return export_fmt
 
 
 class LoggingConsole(rich.console.Console):
-
     # @enum.verify(enum.CONTINUOUS)  # not supported by Py 3.10
     class LogLevel(enum.IntEnum):
         Debug = (0,)
@@ -123,9 +140,9 @@ def bmNamesTransform(
     assert isinstance(console, LoggingConsole)
     if re_from is None:
         # not nice that it glues func args with CLI args, but ok to simplify err handling
-        assert (
-            re_to is None
-        ), f"--to{set_idx} can only be used when there's a corresponding --from{set_idx}"
+        assert re_to is None, (
+            f"--to{set_idx} can only be used when there's a corresponding --from{set_idx}"
+        )
         return stats
     assert isinstance(re_from, str) and len(re_from) > 0
     if re_to is None:
