@@ -95,7 +95,7 @@ def getAltDelimiter(self) -> str | None:
         "benchmark results. See also --file2_parser and --filter2 arguments.\n"
         "`getAltDelimiter()` method of the --files_parser/--file1_parser sets the comparison mode.",
         metavar="<path/to/file2>",
-        nargs='?',
+        nargs="?",
         default=None,
     )
 

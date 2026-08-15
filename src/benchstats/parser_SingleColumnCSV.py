@@ -5,6 +5,7 @@ The simplest parser ever for single column CSV files.
 import numpy as np
 from benchstats.common import ParserBase
 
+
 class parser_SingleColumnCSV(ParserBase):
     def __init__(self, fpath, filter, metrics, debug_log=None) -> None:
         # note that `filter` value is passed from `--filter1` as it is, so one
