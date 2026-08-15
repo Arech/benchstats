@@ -1,4 +1,3 @@
-from typing import Iterable
 import unittest
 import numpy as np
 import time

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchstats"
-version = "3.4.1"
-description = "Statistical Testing for Benchmark Results Comparison"
+dynamic = ["version"]
+description = "Statistical Testing & Reporting CLI Tool And Python Package. Primarily For Benchmark Results Comparison, But You Choose"
 readme = "README.md"
 authors = [{ name = "Aleksei Rechinskii", email = "5dpea9nhd@mozmail.com" }]
 license = "MIT"
@@ -39,6 +39,9 @@ dependencies = [
 ]
 requires-python = ">=3.10"
 # due to using | in type hinting.
+
+[tool.setuptools.dynamic]
+version = {attr = "benchstats.__version__"}
 
 [project.urls]
 Homepage = "https://github.com/Arech/benchstats"

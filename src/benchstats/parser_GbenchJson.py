@@ -139,15 +139,13 @@ class parser_GbenchJson(ParserBase):
                             bms,
                             key=lambda b: b["repetition_index"] if "repetition_index" in b else -1,
                         ),
-                        key=lambda b: (
-                            1 if "run_type" in b and b["run_type"] == "aggregate" else 0
-                        ),
+                        key=lambda b: 1 if "run_type" in b and b["run_type"] == "aggregate" else 0,
                     ),
                     key=lambda b: (
                         b["per_family_instance_index"] if "per_family_instance_index" in b else -1
                     ),
                 ),
-                key=lambda b: (b["family_index"] if "family_index" in b else -1),
+                key=lambda b: b["family_index"] if "family_index" in b else -1,
             )
 
         with open(self.file, "r") as f:

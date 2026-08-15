@@ -78,6 +78,13 @@ class TestComparisonMethods(unittest.TestCase):
     def test_compare_less2(self):
         a, b = np.zeros((kSize,)), np.ones((kSize,))
         a[0] = 1
+        import warnings
+
+        # Hide the specific precision loss warning
+        warnings.filterwarnings(
+            "ignore", 
+            message="Precision loss occurred in moment calculation"
+        )
         self._do_test_compare(a, b, "<")
         self._do_test_compare(b, a, ">")
 

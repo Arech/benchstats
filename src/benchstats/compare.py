@@ -161,9 +161,7 @@ class CompareStatsResult:
 
     def areAllSame(self) -> bool:
         """Tests if all benchmarks over all metrics compare same"""
-        return all(
-            "~" == cr.result for bm_res in self._results.values() for cr in bm_res.values()
-        )
+        return all("~" == cr.result for bm_res in self._results.values() for cr in bm_res.values())
 
     def areMetricsSame(self, metrics: Iterable[str]) -> bool:
         """Tests if all benchmarks over specified metrics compare same"""

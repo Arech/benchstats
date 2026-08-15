@@ -1,3 +1,18 @@
+# 3.5.0
+- CLI tool now support a single-source mode, i.e. the setup where there's a single data source
+having all information about all benchmarks across all contenders. This enables CLI tool to
+produce N-way comparisons whenever needed. Now when the
+`--file1_parser`'s `getAltDelimiter()` method returns a string, the string is used as
+an alternatives delimiter. For the details, see `alt_delimiter=` parameter of
+`benchstats.compare.compareStats()`.
+- CLI tool now supports a fully qualified Python import path of the parser's module for
+`--parser...` flags. For example, one could use `benchstats.parser_SingleColumnCSV` to reference
+the same inbuilt `SingleColumnCSV`. Useful for utilizing parsers from other packages.
+- tests + code improvements related to parsers loading.
+- Updated `LoggingConsole` with experience from [yacce](https://github.com/Arech/yacce).
+Specifically, `.trace()` level and method has been added.
+- `main()` now meaningfully supports external invocation.
+
 # 3.4.0
 - `qbench.showBench()` can take benchmark results as a dict of per-name 2D `[reps, iters]` arrays
 (with `bm_names=None` and a non-empty `alt_delimiter`), not only a single 3D numpy stack.
