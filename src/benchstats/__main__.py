@@ -5,13 +5,16 @@ from benchstats.cli_parser import makeParser
 from benchstats.render import renderComparisonResults
 from benchstats.parsers import getParserFor
 
+import argparse
 import os
 from rich.terminal_theme import DIMMED_MONOKAI as DarkTheme, DEFAULT_TERMINAL_THEME as LightTheme
+import sys
 
 
-def main():
-    parser = makeParser()
-    args = parser.parse_args()
+def main(args: argparse.Namespace | None = None) -> int:
+    if args is None:
+        parser = makeParser()
+        args = parser.parse_args()
 
     export_fmt = detectExportFormat(args.export_to, args.export_fmt)
     if export_fmt is not None:
@@ -32,7 +35,7 @@ def main():
         console.critical(
             "--alpha must be a positive number less than 0.5 (%.2f is given)" % args.alpha
         )
-        exit(2)
+        return 2
 
     Parser1 = getParserFor(args.files_parser if args.file1_parser is None else args.file1_parser)
     Parser2 = getParserFor(args.files_parser if args.file2_parser is None else args.file2_parser)
@@ -109,8 +112,9 @@ def main():
             assert False, "NOT IMPLEMENTED?!"
 
     if cr.at_least_one_differs:
-        exit(1)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

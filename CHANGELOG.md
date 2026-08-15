@@ -1,5 +1,5 @@
 # 3.5.0
-- 
+- main() now meaningfully supports external invokation.
 
 # 3.4.0
 - `qbench.showBench()` can take benchmark results as a dict of per-name 2D `[reps, iters]` arrays
