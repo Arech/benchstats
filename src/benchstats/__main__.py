@@ -8,7 +8,6 @@ from benchstats.parsers import getParserFor
 import argparse
 import os
 from rich.terminal_theme import DIMMED_MONOKAI as DarkTheme, DEFAULT_TERMINAL_THEME as LightTheme
-import sys
 
 
 def main(args: argparse.Namespace | None = None) -> int:
@@ -150,4 +149,6 @@ def main(args: argparse.Namespace | None = None) -> int:
 
 
 if __name__ == "__main__":
+    import sys
+
     sys.exit(main())
