@@ -488,7 +488,8 @@ def compareStats(
     if with_alternatives:
         pool, orig_names = poolBenchmarks(alt_delimiter, sg0, sg1, logger if debug_log else None)
 
-        for common_name, alternatives in pool.items():
+        for common_name in sorted(pool.keys()):
+            alternatives = pool[common_name]
             if len(alternatives) <= 1:
                 warn(
                     "Benchmark '%s%s' has no alternatives. Skipping it.",
@@ -498,7 +499,7 @@ def compareStats(
                 continue
 
             onames = orig_names[common_name]
-            for altA, altB in itertools.combinations(alternatives.keys(), 2):
+            for altA, altB in itertools.combinations(sorted(alternatives.keys()), 2):
                 assert isinstance(altA, str) and isinstance(altB, str)
                 assert altA != altB
                 bm_name = f"{common_name} {alt_delimiter} {altA} vs {altB}"
@@ -516,12 +517,12 @@ def compareStats(
                 logger.debug("Benchmarks in set0:", ", ".join(sg0.keys()))
                 logger.debug("Benchmarks in set1:", ", ".join(sg1.keys()))
 
-        for bm_name, metrics1 in sg0.items():
+        for bm_name in sorted(sg0.keys()):
             assert isinstance(bm_name, str)
             if bm_name not in sg1:
                 warn("Key/benchmark name '%s' not found in set2", bm_name)
                 continue
-            results[bm_name] = compareBenchmark(bm_name, metrics1, sg1[bm_name])
+            results[bm_name] = compareBenchmark(bm_name, sg0[bm_name], sg1[bm_name])
             comparisons[bm_name] = (bm_name, bm_name)
 
     return CompareStatsResult(results, method, alpha, bool(at_least_one_differs), comparisons)
