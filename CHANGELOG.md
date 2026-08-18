@@ -1,3 +1,6 @@
+# 3.5.1
+- Now benchmarks are sorted alphabetically instead of following the insertion order.
+
 # 3.5.0
 - CLI tool now support a single-source mode, i.e. the setup where there's a single data source
 having all information about all benchmarks across all contenders. This enables CLI tool to
