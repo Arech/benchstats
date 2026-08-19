@@ -17,13 +17,13 @@ _kRobustStatValues = {"extremums": [0, 100], "median": [50], "iqr": [25, 75]}
 
 kDefaultStyles = {
     "benchmark_name_same": None,
-    "benchmark_name_diff_main": "#FF6060",
+    "benchmark_name_diff_main": "#FF8080",
     "benchmark_name_diff_secondary": "#C0B040",
     "pval_format": ".5f",  # no point in e notation
     "pval_format_generic": ".1e",  # used iif pval_format isn't enough to print alpha & pvals.
     "default_metric_unit": "s",
     "diff_result_sign": "bold",
-    "metric_main_diff": "#FF1010",
+    "metric_main_diff": "#FF8080",
     "metric_main_same": None,
     "metric_scnd_diff": "#B0A000",
     "metric_scnd_same": None,
