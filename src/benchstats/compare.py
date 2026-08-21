@@ -3,6 +3,7 @@ from collections import namedtuple
 import numpy as np
 import scipy.stats
 import itertools
+from typing import Any
 
 from .common import LoggingConsole
 
@@ -206,10 +207,10 @@ class CompareStatsResult:
 
 def poolBenchmarks(
     alt_delimiter: str,
-    sg0: dict[str, dict[str, Iterable[float]]],
-    sg1: dict[str, dict[str, Iterable[float]]] | None,
+    sg0: dict[str, dict[str, Any]],
+    sg1: dict[str, dict[str, Any]] | None,
     logger: LoggingConsole | None = None,
-) -> tuple[dict[str, dict[str, dict[str, Iterable[float]]]], dict[str, dict[str, str]]]:
+) -> tuple[dict[str, dict[str, dict[str, Any]]], dict[str, dict[str, str]]]:
     """Using the specified delimiter divides each benchmark name into (the longest possible) common
     part and an alternative name part, merges the benchmarks from one or two sets of benchmarks into
     a single pool represented by a dictionary where a key specifies common part of benchmark name
@@ -246,7 +247,7 @@ def poolBenchmarks(
     original_names = {}
 
     def _do_pool(
-        sg: dict[str, dict[str, Iterable[float]]],
+        sg: dict[str, dict[str, Any]],
         pfx: str,
     ):
         """Merges the benchmarks from one set of benchmarks into a pool"""
