@@ -1,11 +1,10 @@
 """Rendering results of compare::compareStats()"""
 
 from collections.abc import Iterable
-import numpy as np
-import rich
-import rich.table
-from rich.text import Text
 import math
+import numpy as np
+from rich.table import Table, Column
+from rich.text import Text
 
 from .common import LoggingConsole
 from .compare import CompareStatsResult, kMethods
@@ -129,7 +128,7 @@ def _sanitizeSampleStats(sample_stats, perc_fmt):
 
 def renderComparisonResults(
     comp_res: CompareStatsResult,
-    console: LoggingConsole | None,  # if none will construct own
+    console: LoggingConsole | None = None,  # if none will construct own
     dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
@@ -228,8 +227,7 @@ def renderComparisonResults(
 
     theme_style = "dark" if dark_theme else "light"
     row_styles_fld = f"row_styles_{theme_style}"
-    _def_justify = "left"  # unfortunately, applies to all rows, instead of only captions
-    # Also very unfortunately, there seems to be no way of controlling text overflows in rich tables
+    # Unfortunately, there seems to be no way of controlling text overflows in rich tables
     # (what our --multiline option were meant to do). If there's more text in a row that the width
     # of the terminal, columns without no_wrap=True will be unconditionally wrapped. But if all
     # columns have no_wrap=True, text will be unconditionally cropped. So we have to have just one
@@ -238,10 +236,10 @@ def renderComparisonResults(
     # that doesn't seem to work (I remember vaguely it worked with some combination of settings a
     # while ago, but I'm not even sure it was due to settings, or due to a rich version change, or
     # due to potentially different terminal behavior).
-    table = rich.table.Table(
-        rich.table.Column("Benchmark", justify=_def_justify, no_wrap=True),
-        *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(main_metrics)],
-        *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(scnd_metrics)],
+    table = Table(
+        Column(Text("Benchmark", justify="center"), justify="left", no_wrap=True),
+        *[Column(Text(s, justify="center"), justify="left") for s in _makeColumns(main_metrics)],
+        *[Column(Text(s, justify="center"), justify="left") for s in _makeColumns(scnd_metrics)],
         title=title,
         row_styles=_getFmt(row_styles_fld),
     )

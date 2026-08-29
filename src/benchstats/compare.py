@@ -427,7 +427,7 @@ def compareStats(
                 stats0 = np.array(stats0)
             if not isinstance(stats1, np.ndarray):
                 stats1 = np.array(stats1)
-            assert np.ndim(stats0) == 1 and np.ndim(stats1) == 1
+            assert np.ndim(stats0) == 1 and np.ndim(stats1) == 1, "Metrics values must be 1D arrays"
 
             size0, size1 = np.size(stats0), np.size(stats1)
             if size0 < kMinStatsSize or size1 < kMinStatsSize:
