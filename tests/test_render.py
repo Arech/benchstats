@@ -11,8 +11,7 @@ from benchstats.render import renderComparisonResults
 
 class TestRenderMANUAL(unittest.TestCase):
     def test_output(self):
-        # we need to output grid:
-        # [main: <, >, ~] x [scnd: <, >, ~]
+        # we need to output grid of several main and secondary metric results
         n_samples = 10
         small = np.ones(n_samples)
         large = 2 * np.ones(n_samples)
@@ -26,16 +25,22 @@ class TestRenderMANUAL(unittest.TestCase):
             return small, small
 
         s1, s2 = {}, {}
-        for main in ["<", ">", "~"]:
-            m1, m2 = _makeData(main)
-            for scnd in ["<", ">", "~"]:
-                name = f"main_{main} scnd_{scnd}"
-                r1, r2 = _makeData(scnd)
-                s1[name] = {"main": m1, "scnd": r1}
-                s2[name] = {"main": m2, "scnd": r2}
+        possible_results = ["<", ">", "~"]
+        for main1 in possible_results:
+            m11, m12 = _makeData(main1)
+            for main2 in possible_results:
+                m21, m22 = _makeData(main2)
+                for scnd1 in possible_results:
+                    r11, r12 = _makeData(scnd1)
+                    for scnd2 in possible_results:
+                        name = f"m1_{main1} m2_{main2} s1_{scnd1} s2_{scnd2}"
+                        r21, r22 = _makeData(scnd2)
+                        s1[name] = {"main1": m11, "scnd1": r11, "main2": m21, "scnd2": r21}
+                        s2[name] = {"main1": m12, "scnd1": r12, "main2": m22, "scnd2": r22}
 
-        cr = compareStats(s1, s2, main_metrics="main")
-        renderComparisonResults(cr, main_metrics="main")
+        main_metrics = ["main1", "main2"]
+        cr = compareStats(s1, s2, main_metrics=main_metrics)
+        renderComparisonResults(cr, main_metrics=main_metrics, drop_pvalues=True)
 
 
 if __name__ == "__main__":

@@ -129,6 +129,7 @@ def _sanitizeSampleStats(sample_stats, perc_fmt):
 def renderComparisonResults(
     comp_res: CompareStatsResult,
     console: LoggingConsole | None = None,  # if none will construct own
+    *,
     dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
@@ -136,7 +137,9 @@ def renderComparisonResults(
     show_sample_sizes: bool = False,
     sample_stats=None,  # or iterable with predefined values: float%, or from kPossibleStatNames.keys()
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
-    always_show_pvalues: bool = False,
+    drop_pvalues: bool = False,  # if true, don't show P-value at all
+    always_show_pvalues: bool = False,  # if (not drop_pvalues), setting to true shows all P-values,
+    #                                     not just those that are below alpha
     multiline: bool = True,  # per metric report uses several lines
     metric_precision: int = 4,  # total digits in metric reported value. Min 3
     show_percent_diff: bool = True,  # if true, also show percent difference between values.
@@ -324,16 +327,17 @@ def renderComparisonResults(
                 )
 
             # pvalue
-            if always_show_pvalues or is_diff:
-                str_pval = f"{res.pvalue:{pval_fmt}}"
-                # showing trailing plus to highlight that it's not a true zero, reasonably assuming pvalue is never zero
-                next_char = "+" if 0 == float(str_pval) else " "
-                txt.append(f"{delim_space}p={str_pval}{next_char}", style=comp_res_style)
-            else:
-                txt.append(
-                    delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),  # noqa:E712
-                    style=comp_res_style,
-                )
+            if not drop_pvalues:
+                if always_show_pvalues or is_diff:
+                    str_pval = f"{res.pvalue:{pval_fmt}}"
+                    # show trailing plus to highlight that it's not a true zero (assumes pvalue is never zero)
+                    next_char = "+" if 0 == float(str_pval) else " "
+                    txt.append(f"{delim_space}p={str_pval}{next_char}", style=comp_res_style)
+                else:
+                    txt.append(
+                        delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),  # noqa:E712
+                        style=comp_res_style,
+                    )
 
             # sample sizes
             if show_sample_sizes:
