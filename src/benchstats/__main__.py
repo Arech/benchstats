@@ -26,7 +26,7 @@ def main(args: argparse.Namespace | None = None) -> int:
         no_color=not args.colors,
         record=export_fmt is not None,
         log_level=(
-            LoggingConsole.LogLevel.Debug if args.show_debug else LoggingConsole.LogLevel.Warning
+            LoggingConsole.LogLevel.Trace if args.show_debug else LoggingConsole.LogLevel.Warning
         ),
     )
 
@@ -114,12 +114,13 @@ def main(args: argparse.Namespace | None = None) -> int:
 
     renderComparisonResults(
         cr,
-        console,
+        console=console,
         expect_same=args.expect_same,
         main_metrics=main_metrics,
         sample_stats=args.sample_stats,
         dark_theme=not args.export_light,
         show_sample_sizes=args.sample_sizes,
+        drop_pvalues=args.drop_pvalues,
         always_show_pvalues=args.always_show_pvalues,
         multiline=args.multiline,
         metric_precision=args.metric_precision,

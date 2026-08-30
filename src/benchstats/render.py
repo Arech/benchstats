@@ -1,11 +1,10 @@
 """Rendering results of compare::compareStats()"""
 
 from collections.abc import Iterable
-import numpy as np
-import rich
-import rich.table
-from rich.text import Text
 import math
+import numpy as np
+from rich.table import Table, Column
+from rich.text import Text
 
 from .common import LoggingConsole
 from .compare import CompareStatsResult, kMethods
@@ -16,17 +15,32 @@ kPossibleStatNames = {"extremums": 2, "median": 3, "iqr": 2, "std": 3}
 _kRobustStatValues = {"extremums": [0, 100], "median": [50], "iqr": [25, 75]}
 
 kDefaultStyles = {
-    "benchmark_name_same": None,
-    "benchmark_name_diff_main": "#FF8080",
-    "benchmark_name_diff_secondary": "#C0B040",
+    # report table metric cell style depend on comparison result
+    # "metric_main_diff": "#FF8080",  # OBSOLETE
+    # "metric_main_same": None,  # OBSOLETE
+    # "metric_scnd_diff": "#B0A000",  # OBSOLETE
+    # "metric_scnd_same": None,  # OBSOLETE
+
+    # be careful to choose colors that converts to 16-color palette well!
+    # (use color_system="standard" for rich.console)
+    "metric_main_~": None,
+    #"metric_main_<": "#A0B0FF",
+    "metric_main_<": "#70A0FF",
+    #"metric_main_<": "#5c5cff",
+    "metric_main_>": "#FF8080",
+    "metric_scnd_~": None,
+    "metric_scnd_<": "#50B0C0",
+    "metric_scnd_>": "#C0B000",
+    # benchmark name cell style takes the style of first non-same metric cell
+    # (in a iter_metrics=[*main_metrics, *scnd_metrics] sequence of columns)
+    # "benchmark_name_same": None,  # OBSOLETE
+    # "benchmark_name_diff_main": "#FF8080",  # OBSOLETE
+    # "benchmark_name_diff_secondary": "#C0B040",  # OBSOLETE
+    # other styles
     "pval_format": ".5f",  # no point in e notation
     "pval_format_generic": ".1e",  # used iif pval_format isn't enough to print alpha & pvals.
     "default_metric_unit": "s",
     "diff_result_sign": "bold",
-    "metric_main_diff": "#FF8080",
-    "metric_main_same": None,
-    "metric_scnd_diff": "#B0A000",
-    "metric_scnd_same": None,
     "min_metric_name_len": 10,
     "percents_precision": 1,
     "row_styles_dark": ["", "on #202020"],
@@ -129,7 +143,8 @@ def _sanitizeSampleStats(sample_stats, perc_fmt):
 
 def renderComparisonResults(
     comp_res: CompareStatsResult,
-    console: LoggingConsole | None,  # if none will construct own
+    console: LoggingConsole | None = None,  # if none will construct own
+    *,
     dark_theme: bool = True,
     title: None | bool | str = True,  # None, False - disables title, str - customizes it
     style_overrides: dict = None,  # overrides for kDefaultStyles
@@ -137,7 +152,9 @@ def renderComparisonResults(
     show_sample_sizes: bool = False,
     sample_stats=None,  # or iterable with predefined values: float%, or from kPossibleStatNames.keys()
     expect_same: bool = False,  # if true, show stats from assumption h0 is true
-    always_show_pvalues: bool = False,
+    drop_pvalues: bool = False,  # if true, don't show P-value at all
+    always_show_pvalues: bool = False,  # if (not drop_pvalues), setting to true shows all P-values,
+    #                                     not just those that are below alpha
     multiline: bool = True,  # per metric report uses several lines
     metric_precision: int = 4,  # total digits in metric reported value. Min 3
     show_percent_diff: bool = True,  # if true, also show percent difference between values.
@@ -228,8 +245,7 @@ def renderComparisonResults(
 
     theme_style = "dark" if dark_theme else "light"
     row_styles_fld = f"row_styles_{theme_style}"
-    _def_justify = "left"  # unfortunately, applies to all rows, instead of only captions
-    # Also very unfortunately, there seems to be no way of controlling text overflows in rich tables
+    # Unfortunately, there seems to be no way of controlling text overflows in rich tables
     # (what our --multiline option were meant to do). If there's more text in a row that the width
     # of the terminal, columns without no_wrap=True will be unconditionally wrapped. But if all
     # columns have no_wrap=True, text will be unconditionally cropped. So we have to have just one
@@ -238,10 +254,10 @@ def renderComparisonResults(
     # that doesn't seem to work (I remember vaguely it worked with some combination of settings a
     # while ago, but I'm not even sure it was due to settings, or due to a rich version change, or
     # due to potentially different terminal behavior).
-    table = rich.table.Table(
-        rich.table.Column("Benchmark", justify=_def_justify, no_wrap=True),
-        *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(main_metrics)],
-        *[rich.table.Column(s, justify=_def_justify) for s in _makeColumns(scnd_metrics)],
+    table = Table(
+        Column(Text("Benchmark", justify="center"), justify="left", no_wrap=True),
+        *[Column(Text(s, justify="center"), justify="left") for s in _makeColumns(main_metrics)],
+        *[Column(Text(s, justify="center"), justify="left") for s in _makeColumns(scnd_metrics)],
         title=title,
         row_styles=_getFmt(row_styles_fld),
     )
@@ -254,19 +270,19 @@ def renderComparisonResults(
     percent_delim = delim_space if show_percent_diff else " "
 
     for bm_name, results in comp_res.results.items():
-        diff_main = any([r.result != "~" for m, r in results.items() if m in main_metrics])
-        diff_scnd = any([r.result != "~" for m, r in results.items() if m in scnd_metrics])
-        bm_fld = f"benchmark_name_{'diff_main' if diff_main else ('diff_secondary' if diff_scnd else 'same')}"
-
+        # first non-same metric sets the name of field of style of benchmark name cell.
+        # Not using the style itself, since it can be None also
+        name_style = None
         cols = [None] * len(metrics)
         for idx, metric_name in enumerate(iter_metrics):
             res = results[metric_name]
             is_main = idx < len(main_metrics)
             is_diff = res.result != "~"
 
-            m_fld = "main" if is_main else "scnd"
-            diff_fld = "diff" if is_diff else "same"
-            comp_res_fld = f"metric_{m_fld}_{diff_fld}"
+            assert res.result in ["~", "<", ">"]
+            comp_res_fld = f"metric_{'main' if is_main else 'scnd'}_{res.result}"
+            if not name_style and is_diff:
+                name_style = comp_res_fld
 
             unit = style_overrides.get(metric_unit_keys[idx], kDefaultStyles["default_metric_unit"])
             comp_res_style = _getFmt(comp_res_fld)
@@ -326,16 +342,17 @@ def renderComparisonResults(
                 )
 
             # pvalue
-            if always_show_pvalues or is_diff:
-                str_pval = f"{res.pvalue:{pval_fmt}}"
-                # showing trailing plus to highlight that it's not a true zero, reasonably assuming pvalue is never zero
-                next_char = "+" if 0 == float(str_pval) else " "
-                txt.append(f"{delim_space}p={str_pval}{next_char}", style=comp_res_style)
-            else:
-                txt.append(
-                    delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),  # noqa:E712
-                    style=comp_res_style,
-                )
+            if not drop_pvalues:
+                if always_show_pvalues or is_diff:
+                    str_pval = f"{res.pvalue:{pval_fmt}}"
+                    # show trailing plus to highlight that it's not a true zero (assumes pvalue is never zero)
+                    next_char = "+" if 0 == float(str_pval) else " "
+                    txt.append(f"{delim_space}p={str_pval}{next_char}", style=comp_res_style)
+                else:
+                    txt.append(
+                        delim_space + " " * (pval_total_len * int(show_sample_sizes == True)),  # noqa:E712
+                        style=comp_res_style,
+                    )
 
             # sample sizes
             if show_sample_sizes:
@@ -371,7 +388,9 @@ def renderComparisonResults(
                     assert ">" == res.result
                     fp_gr_metrics[metric_name] = 1 + fp_gr_metrics.get(metric_name, 0)
 
-        table.add_row(Text(bm_name, style=_getFmt(bm_fld)), *cols)
+        if not name_style:
+            name_style = "metric_main_~"
+        table.add_row(Text(bm_name, style=_getFmt(name_style)), *cols)
 
     console.print(table)
 

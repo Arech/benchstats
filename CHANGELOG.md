@@ -1,3 +1,16 @@
+# 3.6.0
+- **Breaking changes**:
+  - `render.py::kDefaultStyles` for benchmark name and metric cell reports has been changed to
+  support different coloring for `<` and `>` comparison results.
+  - `renderComparisonResults()` was modified to require key-value pairs for most of the arguments.
+- Results table header cells are now justified to the center instead of to the left.
+- `renderComparisonResults()` got `drop_pvalues` parameter settable through new `--drop_pvalues` CLI
+argument to completely hide p-values output.
+By default it's disabled, but eventually might become enabled by default, since these p-values
+mean nothing when core tests assumptions (IID of samples) are almost always broken.
+- `--show_debug` now uses lower `Trace` level, instead of `Debug` to match the intent correctly.
+This CLI option will be deprecated and substituted with `--console_log_level` later.
+
 # 3.5.1
 - Now benchmarks are sorted alphabetically instead of following the insertion order.
 
