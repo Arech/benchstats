@@ -1,3 +1,7 @@
+# 3.6.1
+- Changed html font to a condensed variant of Inconsolata
+- Added selection highlighter snippet for exported HTML 
+
 # 3.6.0
 - **Breaking changes**:
   - `render.py::kDefaultStyles` for benchmark name and metric cell reports has been changed to

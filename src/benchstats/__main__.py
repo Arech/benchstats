@@ -140,7 +140,11 @@ def main(args: argparse.Namespace | None = None) -> int:
                 args.export_to, title="", theme=LightTheme if args.export_light else DarkTheme
             )
         elif "html" == export_fmt:
-            console.save_html(args.export_to, theme=LightTheme if args.export_light else DarkTheme)
+            console.save_html(
+                args.export_to,
+                theme=LightTheme if args.export_light else DarkTheme,
+                enable_highlighter=True,
+            )
         else:
             assert False, "NOT IMPLEMENTED?!"
 
