@@ -254,8 +254,18 @@ def getAltDelimiter(self) -> str | None:
     g_rendering = parser.add_argument_group("Rendering", "Controls how results are rendered")
 
     g_rendering.add_argument(
+        "--drop_pvalues",
+        help="If set, shows no info on pvalues in the report at all. In most cases the core "
+        "assumption of every statistical test, - identical independent distribution of samples, - "
+        "is broken and p-values aren't really interpretable, so there's no point in showing them.",
+        action="store_true",
+        default=False,
+    )
+
+    g_rendering.add_argument(
         "--always_show_pvalues",
-        help="If set, always show pvalues. By default it shows pvalues only for significant differences. Note that "
+        help="If `--drop_pvalues` isn't set and this flag is set, always prints pvalues. By default it shows "
+        "pvalues only for significant differences. Note that "
         "when two sets are compared stochastically same (~), or more precisely, not stochastically less and not "
         "stochastically greater (see https://en.wikipedia.org/wiki/Stochastic_ordering), pvalue shown is a minimum of "
         "two pvalues for less and greater comparison.",

@@ -443,9 +443,8 @@ Benchmark comparison results (Brunner Munzel test, alpha=0.00100)
 
 ## Stability and Changelog
 
-The project uses semantic versioning scheme.
-
-Depending on a feedback the project or its individual components might get breaking changes, so prefer to use version pinning to prevent unexpected breakages. See [CHANGELOG.md](https://github.com/Arech/benchstats/blob/main/CHANGELOG.md) for details.
+The project uses semantic versioning scheme. Mostly, as minor breaking changes could still go under
+minor version change instead of major. Prefer to pin version you rely on to prevent unexpected breakages. See [CHANGELOG.md](https://github.com/Arech/benchstats/blob/main/CHANGELOG.md) for details.
 
 ## FAQ
 

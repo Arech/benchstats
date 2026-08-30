@@ -1,5 +1,3 @@
-"""These are likely will be mostly manual tests"""
-
 import unittest
 
 import numpy as np
