@@ -1,5 +1,6 @@
 # 3.6.1
-- Changed html font to condensed variant of Inconsolata
+- Changed html font to a condensed variant of Inconsolata
+- Added selection highlighter snippet for exported HTML 
 
 # 3.6.0
 - **Breaking changes**:
