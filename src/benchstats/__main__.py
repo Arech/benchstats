@@ -26,7 +26,7 @@ def main(args: argparse.Namespace | None = None) -> int:
         no_color=not args.colors,
         record=export_fmt is not None,
         log_level=(
-            LoggingConsole.LogLevel.Debug if args.show_debug else LoggingConsole.LogLevel.Warning
+            LoggingConsole.LogLevel.Trace if args.show_debug else LoggingConsole.LogLevel.Warning
         ),
     )
 

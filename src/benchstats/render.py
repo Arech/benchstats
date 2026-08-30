@@ -15,17 +15,32 @@ kPossibleStatNames = {"extremums": 2, "median": 3, "iqr": 2, "std": 3}
 _kRobustStatValues = {"extremums": [0, 100], "median": [50], "iqr": [25, 75]}
 
 kDefaultStyles = {
-    "benchmark_name_same": None,
-    "benchmark_name_diff_main": "#FF8080",
-    "benchmark_name_diff_secondary": "#C0B040",
+    # report table metric cell style depend on comparison result
+    # "metric_main_diff": "#FF8080",  # OBSOLETE
+    # "metric_main_same": None,  # OBSOLETE
+    # "metric_scnd_diff": "#B0A000",  # OBSOLETE
+    # "metric_scnd_same": None,  # OBSOLETE
+
+    # be careful to choose colors that converts to 16-color palette well!
+    # (use color_system="standard" for rich.console)
+    "metric_main_~": None,
+    #"metric_main_<": "#A0B0FF",
+    "metric_main_<": "#70A0FF",
+    #"metric_main_<": "#5c5cff",
+    "metric_main_>": "#FF8080",
+    "metric_scnd_~": None,
+    "metric_scnd_<": "#50B0C0",
+    "metric_scnd_>": "#C0B000",
+    # benchmark name cell style takes the style of first non-same metric cell
+    # (in a iter_metrics=[*main_metrics, *scnd_metrics] sequence of columns)
+    # "benchmark_name_same": None,  # OBSOLETE
+    # "benchmark_name_diff_main": "#FF8080",  # OBSOLETE
+    # "benchmark_name_diff_secondary": "#C0B040",  # OBSOLETE
+    # other styles
     "pval_format": ".5f",  # no point in e notation
     "pval_format_generic": ".1e",  # used iif pval_format isn't enough to print alpha & pvals.
     "default_metric_unit": "s",
     "diff_result_sign": "bold",
-    "metric_main_diff": "#FF8080",
-    "metric_main_same": None,
-    "metric_scnd_diff": "#B0A000",
-    "metric_scnd_same": None,
     "min_metric_name_len": 10,
     "percents_precision": 1,
     "row_styles_dark": ["", "on #202020"],
@@ -255,19 +270,19 @@ def renderComparisonResults(
     percent_delim = delim_space if show_percent_diff else " "
 
     for bm_name, results in comp_res.results.items():
-        diff_main = any([r.result != "~" for m, r in results.items() if m in main_metrics])
-        diff_scnd = any([r.result != "~" for m, r in results.items() if m in scnd_metrics])
-        bm_fld = f"benchmark_name_{'diff_main' if diff_main else ('diff_secondary' if diff_scnd else 'same')}"
-
+        # first non-same metric sets the name of field of style of benchmark name cell.
+        # Not using the style itself, since it can be None also
+        name_style = None
         cols = [None] * len(metrics)
         for idx, metric_name in enumerate(iter_metrics):
             res = results[metric_name]
             is_main = idx < len(main_metrics)
             is_diff = res.result != "~"
 
-            m_fld = "main" if is_main else "scnd"
-            diff_fld = "diff" if is_diff else "same"
-            comp_res_fld = f"metric_{m_fld}_{diff_fld}"
+            assert res.result in ["~", "<", ">"]
+            comp_res_fld = f"metric_{'main' if is_main else 'scnd'}_{res.result}"
+            if not name_style and is_diff:
+                name_style = comp_res_fld
 
             unit = style_overrides.get(metric_unit_keys[idx], kDefaultStyles["default_metric_unit"])
             comp_res_style = _getFmt(comp_res_fld)
@@ -373,7 +388,9 @@ def renderComparisonResults(
                     assert ">" == res.result
                     fp_gr_metrics[metric_name] = 1 + fp_gr_metrics.get(metric_name, 0)
 
-        table.add_row(Text(bm_name, style=_getFmt(bm_fld)), *cols)
+        if not name_style:
+            name_style = "metric_main_~"
+        table.add_row(Text(bm_name, style=_getFmt(name_style)), *cols)
 
     console.print(table)
 
