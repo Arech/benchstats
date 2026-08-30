@@ -149,6 +149,15 @@ class LoggingConsole(rich.console.Console):
             return None
         return self._do_log("bright_magenta", "CRIT", *args, **kwargs)
 
+    def save_html(self, *args, **kwargs):
+        my_tpl = rich.console.CONSOLE_HTML_FORMAT.replace(
+            "font-family:Menlo,", "font-family:'Inconsolata SemiCondensed',Inconsolata,Menlo,", count=1
+        ).replace("</head>",'''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inconsolata:wdth@87.5&display=swap" rel="stylesheet">
+</head>''', count=1)
+        super().save_html(*args, **kwargs, code_format=my_tpl)
+
 
 def bmNamesTransform(
     stats: dict[str, dict[str, Iterable[float]]],

@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 from rich.color import Color, ColorSystem
@@ -140,6 +142,20 @@ class TestRender(unittest.TestCase):
                 assert_in_color(cell, exp[0], exp[1], l_idx, idx)
 
             l_idx += 1
+        assert l_idx == len(expected)
+
+    """
+    def test_html_font(self):
+        console = LoggingConsole(record=True)
+        console.info("Test message")
+        with TemporaryDirectory() as tmpdir:
+            fpath = str(Path(tmpdir) / "myhtml.html")
+            console.save_html(fpath)
+            with open(fpath, 'r') as file:
+                file_content = file.read()
+        print("\nHTML:\n")
+        print(file_content)
+    """
 
 
 if __name__ == "__main__":

@@ -1,3 +1,6 @@
+# 3.6.1
+- Changed html font to condensed variant of Inconsolata
+
 # 3.6.0
 - **Breaking changes**:
   - `render.py::kDefaultStyles` for benchmark name and metric cell reports has been changed to
