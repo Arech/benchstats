@@ -155,9 +155,9 @@ class LoggingConsole(rich.console.Console):
         my_tpl = (
             rich.console.CONSOLE_HTML_FORMAT
             .replace(
-                "<head>",
-                f"""<head>
-<!-- Generated with benchstats {BenchstatsVersion}, https://github.com/Arech/benchstats >""",
+                "<html>",
+                f"""<html>
+<!-- Generated with benchstats {BenchstatsVersion}, https://github.com/Arech/benchstats -->""",
                 1,
             )
             .replace(
