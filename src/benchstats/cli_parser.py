@@ -74,7 +74,7 @@ def getAltDelimiter(self) -> str | None:
         "--show_debug",
         help="Shows some additional debugging info. Default: %(default)s",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
     )
 
     g_inputs = parser.add_argument_group(
