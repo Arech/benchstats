@@ -8,6 +8,8 @@ import rich.console
 from collections.abc import Iterable
 import enum
 
+from . import __version__ as BenchstatsVersion
+
 kAvailableFormats = ("txt", "svg", "html")
 
 
@@ -150,14 +152,32 @@ class LoggingConsole(rich.console.Console):
         return self._do_log("bright_magenta", "CRIT", *args, **kwargs)
 
     def save_html(self, *args, enable_highlighter=False, **kwargs):
-        my_tpl = rich.console.CONSOLE_HTML_FORMAT.replace(
-            "font-family:Menlo,", "font-family:'Inconsolata SemiCondensed',Inconsolata,Menlo,", count=1
-        ).replace("</head>",'''<link rel="preconnect" href="https://fonts.googleapis.com">
+        my_tpl = (
+            rich.console.CONSOLE_HTML_FORMAT
+            .replace(
+                "<head>",
+                f"""<head>
+<!-- Generated with benchstats {BenchstatsVersion}, https://github.com/Arech/benchstats >""",
+                1,
+            )
+            .replace(
+                "font-family:Menlo,",
+                "font-family:'Inconsolata SemiCondensed',Inconsolata,Menlo,",
+                1,
+            )
+            .replace(
+                "</head>",
+                """<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wdth@87.5&display=swap" rel="stylesheet">
-</head>''', count=1)
+</head>""",
+                1,
+            )
+        )
         if enable_highlighter:
-            my_tpl = my_tpl.replace('</body>','''<style>
+            my_tpl = my_tpl.replace(
+                "</body>",
+                """<style>
   ::highlight(match) {{
     background-color: yellow;
     color: black;
@@ -165,45 +185,28 @@ class LoggingConsole(rich.console.Console):
 </style>
 
 <script>
-  // Listen for when the user selects text with their mouse or keyboard
   document.addEventListener("selectionchange", () => {{
-    // Clear any previous highlights first
     CSS.highlights.clear();
-
-    // Get the text the user selected
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
-
-    // Stop if the selection is empty or just blank spaces
     if (!selectedText) return;
-
     const ranges = [];
-    
-    // Search for matches inside the body text
-    // (This looks at text nodes so it doesn't break HTML tags)
     const walker = document.createTreeWalker(
       document.body, 
       NodeFilter.SHOW_TEXT
     );
-
     while (walker.nextNode()) {{
       const textNode = walker.currentNode;
       const textContent = textNode.nodeValue;
       let index = textContent.indexOf(selectedText);
-
-      // Find every instance of the text inside this text chunk
       while (index !== -1) {{
         const range = new Range();
         range.setStart(textNode, index);
         range.setEnd(textNode, index + selectedText.length);
         ranges.push(range);
-        
-        // Move to the next character to keep searching
         index = textContent.indexOf(selectedText, index + 1);
       }}
     }}
-
-    // If matches were found, highlight them
     if (ranges.length > 0) {{
       const highlight = new Highlight(...ranges);
       CSS.highlights.set("match", highlight);
@@ -211,7 +214,9 @@ class LoggingConsole(rich.console.Console):
   }});
 </script>
 </body>
-''',count=1)
+""",
+                1,
+            )
         super().save_html(*args, **kwargs, code_format=my_tpl)
 
 
