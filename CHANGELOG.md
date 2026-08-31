@@ -1,3 +1,6 @@
+# 3.6.3
+- change the default for `--show_debug` to `False`
+
 # 3.6.1-2
 - Changed html font to a condensed variant of Inconsolata
 - Added selection highlighter snippet for exported HTML 
