@@ -157,7 +157,7 @@ class LoggingConsole(rich.console.Console):
             .replace(
                 "<html>",
                 f"""<html>
-<!-- Generated with benchstats {BenchstatsVersion}, https://github.com/Arech/benchstats -->""",
+<!-- Generated with benchstats v{BenchstatsVersion}, https://github.com/Arech/benchstats -->""",
                 1,
             )
             .replace(
